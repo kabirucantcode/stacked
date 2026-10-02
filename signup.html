@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>sign up · stacked.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Serif:ital@0;1&family=Space+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/stacked.css">
+</head>
+<body>
+<div id="dot"></div>
+
+<nav class="nav">
+  <b><a href="index.html">stacked.</a></b>
+  <span class="nav-links">
+    <span class="who">already have an account?</span>
+    <a class="pill" href="signin.html">sign in</a>
+  </span>
+</nav>
+
+<main class="auth">
+  <form class="paper" id="su" novalidate>
+    <div class="pg" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="alert" id="err" role="alert" hidden></div>
+
+    <!-- 1 · account -->
+    <section class="stp" data-s="1">
+      <h1>let's get you <span class="serif">in.</span></h1>
+      <p class="lede">Create your account. It takes about a minute, and you can leave whenever.</p>
+      <label class="field">email
+        <input type="email" name="email" required autocomplete="email" placeholder="you@email.com">
+      </label>
+      <label class="field">password
+        <input type="password" name="password" required minlength="8" autocomplete="new-password" placeholder="at least 8 characters">
+        <small>8 characters minimum. This is a demo — nothing leaves your browser.</small>
+      </label>
+      <div class="mrow">
+        <button class="btn dark" type="button" data-a="next">continue</button>
+        <a class="lnk" href="index.html">back to home</a>
+      </div>
+    </section>
+
+    <!-- 2 · identity -->
+    <section class="stp" data-s="2" hidden>
+      <h1>who are <span class="serif">you?</span></h1>
+      <p class="lede">So your account — and every trade in it — has a name on it.</p>
+      <label class="field">full name
+        <input type="text" name="name" required autocomplete="name" placeholder="Alex Rivera">
+      </label>
+      <label class="field">phone <span class="opt">(optional)</span>
+        <input type="tel" name="phone" autocomplete="tel" placeholder="+1 555 000 0000">
+      </label>
+      <div class="mrow">
+        <button class="btn dark" type="button" data-a="next">continue</button>
+        <button class="lnk" type="button" data-a="back">back</button>
+      </div>
+    </section>
+
+    <!-- 3 · risk vibe -->
+    <section class="stp" data-s="3" hidden>
+      <h1>pick your <span class="serif">vibe.</span></h1>
+      <p class="lede">How much risk feels right? You can change this any time from your dashboard.</p>
+      <button class="vb" type="button" data-a="vibe" data-v="Chill" aria-pressed="false">Chill
+        <small>Slow and steady. Smaller moves, fewer surprises.</small></button>
+      <button class="vb" type="button" data-a="vibe" data-v="Balanced" aria-pressed="false">Balanced
+        <small>A mix of steady positions and bolder ones.</small></button>
+      <button class="vb" type="button" data-a="vibe" data-v="Full send" aria-pressed="false">Full send
+        <small>More active, more volatile. Bigger swings both ways.</small></button>
+      <div class="mrow">
+        <button class="lnk" type="button" data-a="back">back</button>
+      </div>
+    </section>
+
+    <!-- 4 · funding -->
+    <section class="stp" data-s="4" hidden>
+      <h1>how much to <span class="serif">start?</span></h1>
+      <p class="lede">You choose the amount. Your money stays in your name — we trade it, we don't own it.</p>
+      <label class="field">amount in USD
+        <input type="number" name="amount" min="1" step="1" required value="100">
+      </label>
+      <div class="chips">
+        <button class="chip" type="button" data-a="amt" data-v="50">$50</button>
+        <button class="chip" type="button" data-a="amt" data-v="100">$100</button>
+        <button class="chip" type="button" data-a="amt" data-v="500">$500</button>
+        <button class="chip" type="button" data-a="amt" data-v="1000">$1,000</button>
+      </div>
+      <label class="ck">
+        <input type="checkbox" name="ack" required>
+        <span>I understand that trading involves risk and I can lose some or all of my money.</span>
+      </label>
+      <div class="mrow">
+        <button class="btn dark" type="submit">create my account</button>
+        <button class="lnk" type="button" data-a="back">back</button>
+      </div>
+    </section>
+
+    <!-- 5 · done -->
+    <section class="stp" data-s="5" hidden>
+      <h1 class="serif" id="dn">you're in.</h1>
+      <p class="lede" id="ds"></p>
+      <div class="mrow">
+        <a class="btn dark" href="dashboard.html">go to my dashboard</a>
+      </div>
+      <p class="foot mono muted">Demo only — no money moved, no account was really created.</p>
+    </section>
+  </form>
+</main>
+
+<script src="assets/stacked.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  Stacked.redirectIfAuthed('dashboard.html');
+
+  var form = document.getElementById('su');
+  var err = document.getElementById('err');
+  var steps = form.querySelectorAll('.stp');
+  var bars = form.querySelectorAll('.pg i');
+  var current = 1;
+  var draft = {};
+
+  function showAlert(msg) {
+    err.textContent = msg;
+    err.hidden = false;
+    err.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function clearAlert() { err.hidden = true; }
+
+  function go(n) {
+    current = n;
+    steps.forEach(function (s) { s.hidden = Number(s.dataset.s) !== n; });
+    bars.forEach(function (b, i) { b.className = i < n ? 'on' : ''; });
+    var focusable = form.querySelector('.stp:not([hidden]) input, .stp:not([hidden]) button, .stp:not([hidden]) a');
+    if (focusable) focusable.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function valid(sel) {
+    var el = form.querySelector(sel);
+    return el ? el.checkValidity() : false;
+  }
+
+  function next() {
+    clearAlert();
+    if (current === 1) {
+      if (!valid('[name=email]')) return showAlert('That email doesn\u2019t look right. Try again.');
+      if (!valid('[name=password]')) return showAlert('Your password needs at least 8 characters.');
+      var email = form.querySelector('[name=email]').value.trim().toLowerCase();
+      if (Stacked.findAccount(email)) return showAlert('There\u2019s already an account for that email. Try signing in instead.');
+      draft.email = email;
+      draft.password = form.querySelector('[name=password]').value;
+      return go(2);
+    }
+    if (current === 2) {
+      if (!valid('[name=name]')) return showAlert('We need a name for the account.');
+      draft.name = form.querySelector('[name=name]').value.trim();
+      draft.phone = form.querySelector('[name=phone]').value.trim();
+      return go(3);
+    }
+    return go(current + 1);
+  }
+
+  form.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-a]');
+    if (!t) return;
+    var a = t.dataset.a;
+
+    if (a === 'back') { clearAlert(); go(current - 1); return; }
+    if (a === 'next') { next(); return; }
+
+    if (a === 'vibe') {
+      draft.vibe = t.dataset.v;
+      form.querySelectorAll('.vb').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === t));
+      });
+      clearAlert();
+      go(4);
+      return;
+    }
+
+    if (a === 'amt') { form.querySelector('[name=amount]').value = t.dataset.v; return; }
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (current !== 4) { next(); return; }
+    clearAlert();
+    if (!valid('[name=amount]')) return showAlert('Enter an amount to start with.');
+    if (!valid('[name=ack]')) return showAlert('Please acknowledge the risk before continuing.');
+
+    var amount = Math.max(1, Math.round(Number(form.querySelector('[name=amount]').value)));
+
+    var user = {
+      email: draft.email,
+      name: draft.name,
+      phone: draft.phone,
+      vibe: draft.vibe || 'Balanced',
+      start: amount,
+      balance: amount,
+      joined: Date.now(),
+      activity: [{ kind: 'deposit', label: 'Opening deposit', amount: amount, at: Date.now() }]
+    };
+
+    Stacked.saveAccount(draft.email, {
+      name: user.name, phone: user.phone, vibe: user.vibe,
+      start: user.start, balance: user.balance, joined: user.joined,
+      pw: Stacked.hash(draft.password)
+    });
+    Stacked.save(user);
+
+    document.getElementById('dn').textContent = 'you\u2019re in, ' + user.name.split(' ')[0] + '.';
+    var ds = document.getElementById('ds');
+    ds.textContent = '';
+    ds.append('Risk vibe: ');
+    var b1 = document.createElement('strong'); b1.textContent = user.vibe;
+    ds.append(b1, '. Starting amount: ');
+    var b2 = document.createElement('strong'); b2.textContent = Stacked.money(user.start);
+    ds.append(b2, '. We\u2019ll email ' + user.email + ' as your first trades land.');
+    go(5);
+  });
+
+  go(1);
+})();
+</script>
+</body>
+</html>

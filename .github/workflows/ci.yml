@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stacked
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/stacked?schema=public
+      AUTH_SECRET: ci-only-secret-not-used-in-production-0000000000
+      AUTH_TRUST_HOST: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # `npm install` rather than `npm ci` so the very first run works before a
+      # lockfile is committed. Switch to `npm ci` once package-lock.json is in.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Create schema
+        run: npx prisma db push
+
+      - name: Build (also type-checks)
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck

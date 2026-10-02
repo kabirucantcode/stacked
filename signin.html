@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>sign in · stacked.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Serif:ital@0;1&family=Space+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/stacked.css">
+</head>
+<body>
+<div id="dot"></div>
+
+<nav class="nav">
+  <b><a href="index.html">stacked.</a></b>
+  <span class="nav-links">
+    <span class="who">new here?</span>
+    <a class="pill" href="signup.html">sign up</a>
+  </span>
+</nav>
+
+<main class="auth">
+  <form class="paper" id="si" novalidate>
+    <h1>welcome <span class="serif">back.</span></h1>
+    <p class="lede">Sign in to watch your money work.</p>
+    <div class="alert" id="err" role="alert" hidden></div>
+
+    <label class="field">email
+      <input type="email" name="email" required autocomplete="email" placeholder="you@email.com">
+    </label>
+    <label class="field">password
+      <input type="password" name="password" required autocomplete="current-password" placeholder="your password">
+    </label>
+
+    <label class="ck">
+      <input type="checkbox" name="remember" checked>
+      <span>Keep me signed in on this device</span>
+    </label>
+
+    <div class="mrow">
+      <button class="btn dark" type="submit">sign in</button>
+      <button class="lnk" type="button" id="demo">use a demo account</button>
+    </div>
+
+    <p class="foot mono">no account yet? <a href="signup.html">create one</a></p>
+  </form>
+</main>
+
+<script src="assets/stacked.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  Stacked.redirectIfAuthed('dashboard.html');
+
+  var form = document.getElementById('si');
+  var err = document.getElementById('err');
+  var emailEl = form.querySelector('[name=email]');
+  var pwEl = form.querySelector('[name=password]');
+
+  function fail(msg) { err.textContent = msg; err.hidden = false; }
+  function clearErr() { err.hidden = true; }
+
+  function signIn(user) { Stacked.save(user); location.assign('dashboard.html'); }
+
+  /* Turns a stored account record into a live session. */
+  function sessionFrom(acct, email) {
+    return {
+      email: email, name: acct.name, phone: acct.phone || '',
+      vibe: acct.vibe || 'Balanced',
+      start: acct.start || 0, balance: acct.balance || acct.start || 0,
+      joined: acct.joined || Date.now(),
+      activity: acct.activity || (acct.start
+        ? [{ kind: 'deposit', label: 'Opening deposit', amount: acct.start, at: acct.joined || Date.now() }]
+        : [])
+    };
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    clearErr();
+
+    var email = emailEl.value.trim().toLowerCase();
+    if (!emailEl.checkValidity()) return fail('That email doesn\u2019t look right.');
+    if (pwEl.value.length < 1) return fail('Enter your password.');
+
+    var acct = Stacked.findAccount(email);
+    if (!acct) return fail('No account found for that email. Create one, or try the demo account.');
+    if (acct.pw && acct.pw !== Stacked.hash(pwEl.value)) return fail('That password doesn\u2019t match. Try again.');
+
+    signIn(sessionFrom(acct, email));
+  });
+
+  document.getElementById('demo').addEventListener('click', function () {
+    clearErr();
+    var email = 'demo@stacked.app';
+    var acct = Stacked.findAccount(email);
+    if (!acct) {
+      acct = {
+        name: 'Demo Trader', phone: '', vibe: 'Balanced',
+        start: 1000, balance: 1000, joined: Date.now(), pw: Stacked.hash('demo1234')
+      };
+      Stacked.saveAccount(email, acct);
+    }
+    signIn(sessionFrom(acct, email));
+  });
+})();
+</script>
+</body>
+</html>

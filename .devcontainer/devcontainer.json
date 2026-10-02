@@ -1,0 +1,16 @@
+{
+  "name": "stacked",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [3000, 5432],
+  "postCreateCommand": "npm install --no-audit --no-fund && npx prisma db push",
+  "customizations": {
+    "vscode": {
+      "extensions": ["Prisma.prisma", "esbenp.prettier-vscode"],
+      "settings": {
+        "typescript.tsdk": "node_modules/typescript/lib"
+      }
+    }
+  }
+}

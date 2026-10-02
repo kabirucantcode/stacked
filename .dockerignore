@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+.env
+.env*.local
+tmp-npm-cache
+stacked-src.zip
+stacked-src.tar.gz

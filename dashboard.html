@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>dashboard · stacked.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Serif:ital@0;1&family=Space+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/stacked.css">
+</head>
+<body>
+<div id="dot"></div>
+
+<nav class="nav">
+  <b><a href="index.html">stacked.</a></b>
+  <span class="nav-links">
+    <span class="who" id="who"></span>
+    <button class="pill" id="out" type="button">sign out</button>
+  </span>
+</nav>
+
+<main class="wrap">
+  <div class="dash-head">
+    <div>
+      <h1 id="greet">hey there.</h1>
+      <p class="sub">Everything we did with your money today, live. Nothing hidden, nothing you need a finance degree to read.</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="badge" id="vibeBadge">Balanced</span>
+      <button class="btn sm" id="dep" type="button">deposit</button>
+      <button class="btn ghost sm" id="wd" type="button">withdraw</button>
+    </div>
+  </div>
+
+  <section class="kpis" aria-label="Account summary">
+    <div class="kpi"><span>portfolio value</span><b id="kValue">$0</b><small id="kValueNote" class="mono"></small></div>
+    <div class="kpi"><span>today</span><b id="kToday">+0.00%</b><small class="mono">sample movement</small></div>
+    <div class="kpi"><span>you put in</span><b id="kIn">$0</b><small class="mono" id="kInNote"></small></div>
+    <div class="kpi"><span>profit / loss</span><b id="kPl">$0</b><small class="mono">since you joined</small></div>
+  </section>
+
+  <div class="dash-grid">
+    <div class="col">
+      <section class="pn" aria-label="Live trade feed">
+        <div class="ph">
+          <div>
+            <span style="text-align:left;display:block;margin-bottom:6px">your account today</span>
+            <b id="pl">+0.00%</b>
+          </div>
+          <span class="mono">sample data,<br>not real trades</span>
+        </div>
+        <div id="fl" role="log" aria-live="polite"></div>
+      </section>
+
+      <section class="panel">
+        <h2>what you <span class="serif">own.</span></h2>
+        <p class="hint">Your money is spread across these positions based on your risk vibe. Values move with the market.</p>
+        <table class="table">
+          <thead><tr><th>position</th><th class="r">value</th><th class="r">today</th></tr></thead>
+          <tbody id="pos"></tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel">
+        <h2>your <span class="serif">vibe.</span></h2>
+        <p class="hint">Change how much risk you're taking. It applies to new trades, not ones already open.</p>
+        <div class="chips" id="vibes">
+          <button class="chip inv" type="button" data-v="Chill">Chill</button>
+          <button class="chip inv" type="button" data-v="Balanced">Balanced</button>
+          <button class="chip inv" type="button" data-v="Full send">Full send</button>
+        </div>
+        <p class="hint" id="vibeNote" style="margin-top:16px">Slow and steady. Smaller moves, fewer surprises.</p>
+      </section>
+
+      <section class="panel">
+        <h2>activity.</h2>
+        <p class="hint">Every deposit, withdrawal and fee, in order.</p>
+        <ul class="act" id="act"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>the fine <span class="serif">print.</span></h2>
+        <p class="hint" style="margin:0">Trading carries risk and you can lose some or all of your money. This dashboard is a front-end demo: no real trades, no real money, and figures are simulated for illustration.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="overlay" id="ov" hidden role="dialog" aria-modal="true" aria-label="Move money">
+  <div class="paper">
+    <h1 id="ovTitle">deposit</h1>
+    <p class="lede" id="ovLede"></p>
+    <div class="alert" id="ovErr" hidden role="alert"></div>
+    <label class="field">amount in USD
+      <input type="number" id="ovAmt" min="1" step="1" value="100">
+    </label>
+    <div class="chips">
+      <button class="chip" type="button" data-amt="50">$50</button>
+      <button class="chip" type="button" data-amt="100">$100</button>
+      <button class="chip" type="button" data-amt="500">$500</button>
+      <button class="chip" type="button" data-amt="1000">$1,000</button>
+    </div>
+    <div class="mrow">
+      <button class="btn dark" id="ovGo" type="button">confirm</button>
+      <button class="lnk" id="ovX" type="button">cancel</button>
+    </div>
+    <p class="foot mono muted" id="ovNote"></p>
+  </div>
+</div>
+
+<script src="assets/stacked.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var u = Stacked.requireAuth();
+  if (!u) return;
+
+  /* Normalise anything an older/hand-made session might be missing. */
+  u.name = u.name || u.email || 'there';
+  u.vibe = ['Chill', 'Balanced', 'Full send'].indexOf(u.vibe) < 0 ? 'Balanced' : u.vibe;
+  u.start = Number(u.start) || 0;
+  u.balance = Number(u.balance) || 0;
+  if (!Array.isArray(u.activity)) {
+    u.activity = u.start ? [{ kind: 'deposit', label: 'Opening deposit', amount: u.start, at: u.joined || Date.now() }] : [];
+  }
+
+  /* ---------- demo data ---------- */
+  var SYM = {
+    NVDA: { p: 118, why: 'earnings momentum' },
+    BTC: { p: 64200, why: 'took profit at resistance' },
+    AAPL: { p: 226, why: 'dip into support' },
+    TSLA: { p: 248, why: 'volatility spike, trimming' },
+    ETH: { p: 2650, why: 'breakout on volume' },
+    MSFT: { p: 420, why: 'steady cash flow, adding' },
+    SOL: { p: 148, why: 'cutting risk before news' },
+    AMZN: { p: 185, why: 'post-earnings pullback' }
+  };
+  var PLANS = {
+    'Chill': [['NVDA', 30], ['MSFT', 25], ['AAPL', 20], ['CASH', 25]],
+    'Balanced': [['NVDA', 25], ['BTC', 20], ['MSFT', 15], ['TSLA', 10], ['CASH', 30]],
+    'Full send': [['TSLA', 25], ['BTC', 20], ['SOL', 15], ['NVDA', 10], ['CASH', 30]]
+  };
+  var VIBE_NOTE = {
+    'Chill': 'Slow and steady. Smaller moves, fewer surprises.',
+    'Balanced': 'A mix of steady positions and bolder ones.',
+    'Full send': 'More active, more volatile. Bigger swings both ways.'
+  };
+  var FD = [
+    ['NVDA', 'BUY', 'earnings momentum'], ['BTC', 'SELL', 'took profit at resistance'],
+    ['AAPL', 'BUY', 'dip into support'], ['TSLA', 'SELL', 'volatility spike, trimming'],
+    ['ETH', 'BUY', 'breakout on volume'], ['MSFT', 'BUY', 'steady cash flow, adding'],
+    ['SOL', 'SELL', 'cutting risk before news'], ['AMZN', 'BUY', 'post-earnings pullback']
+  ];
+
+  var day = {};
+  Object.keys(SYM).forEach(function (k) { day[k] = (Math.random() - .45) * 6; });
+
+  var feed = document.getElementById('fl');
+  var pv = 1.42;
+  var still = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+  function persist() {
+    Stacked.save(u);
+    var acct = Stacked.findAccount(u.email);
+    if (acct) {
+      acct.balance = u.balance; acct.start = u.start; acct.vibe = u.vibe;
+      acct.activity = u.activity; acct.joined = u.joined;
+      Stacked.saveAccount(u.email, acct);
+    }
+  }
+
+  function plan() { return PLANS[u.vibe] || PLANS['Balanced']; }
+
+  /* ---------- render ---------- */
+  function renderHead() {
+    var h = new Date().getHours();
+    var part = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+    var first = (u.name || 'there').split(' ')[0];
+    var greet = document.getElementById('greet');
+    greet.textContent = 'good ' + part + ', ';
+    var accent = document.createElement('span');
+    accent.className = 'serif';
+    accent.textContent = first + '.';
+    greet.appendChild(accent);
+    document.getElementById('who').textContent = u.name || u.email;
+    document.getElementById('vibeBadge').textContent = u.vibe;
+  }
+
+  function renderKpis() {
+    var pl = u.balance - u.start;
+    var value = document.getElementById('kValue');
+    value.textContent = Stacked.money(u.balance);
+    document.getElementById('kValueNote').textContent = 'in your name';
+    document.getElementById('kToday').textContent = Stacked.pct(pv);
+    document.getElementById('kIn').textContent = Stacked.money(u.start);
+    document.getElementById('kInNote').textContent = u.activity.length + ' movement' + (u.activity.length === 1 ? '' : 's');
+    var plEl = document.getElementById('kPl');
+    plEl.textContent = (pl >= 0 ? '+' : '') + Stacked.money(Math.abs(pl));
+    plEl.className = pl < 0 ? 'neg' : '';
+  }
+
+  function renderPositions() {
+    var body = document.getElementById('pos');
+    body.innerHTML = '';
+    plan().forEach(function (row) {
+      var sym = row[0], weight = row[1];
+      var value = u.balance * weight / 100;
+      var change = sym === 'CASH' ? 0 : day[sym];
+      var tr = document.createElement('tr');
+      var qty = sym === 'CASH' ? '' : '<span class="why mono">' +
+        (value / SYM[sym].p).toFixed(4) + ' @ $' + SYM[sym].p.toLocaleString('en-US') + '</span>';
+      tr.innerHTML =
+        '<td><span class="sym">' + (sym === 'CASH' ? 'cash' : sym) + '</span>' +
+        '<span class="why">' + (sym === 'CASH' ? 'dry powder, ready to deploy' : SYM[sym].why) + ' · ' + weight + '%</span>' + qty + '</td>' +
+        '<td class="r num">' + Stacked.money(value) + '</td>' +
+        '<td class="r num' + (change < 0 ? ' neg' : '') + '">' + Stacked.pct(change) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function renderVibes() {
+    document.querySelectorAll('#vibes .chip').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.v === u.vibe));
+    });
+    document.getElementById('vibeNote').textContent = VIBE_NOTE[u.vibe] || '';
+  }
+
+  function when(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
+      d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderActivity() {
+    var list = document.getElementById('act');
+    list.innerHTML = '';
+    u.activity.slice().reverse().forEach(function (a) {
+      var li = document.createElement('li');
+      var neg = a.kind === 'withdraw';
+      li.innerHTML = '<span><span class="what">' + a.label + '</span><span class="when">' + when(a.at) + '</span></span>' +
+        '<span class="amt' + (neg ? ' neg' : '') + '">' + (neg ? '-' : '+') + Stacked.money(a.amount) + '</span>';
+      list.appendChild(li);
+    });
+  }
+
+  function renderAll() {
+    renderKpis(); renderPositions(); renderVibes(); renderActivity(); persist();
+  }
+
+  /* ---------- live feed ---------- */
+  function addTrade() {
+    var d = FD[Math.floor(Math.random() * FD.length)];
+    var px = SYM[d[0]].p * (1 + (Math.random() - .5) * .02);
+    var q = (Math.random() * 4 + .2).toFixed(2);
+    var r = document.createElement('div');
+    var n = new Date();
+    r.className = 'tr';
+    r.innerHTML = '<span class="bd ' + (d[1] === 'BUY' ? 'b' : '') + '">' + d[1].toLowerCase() + '</span>' +
+      '<div><strong>' + d[0] + '</strong><em class="serif">' + d[2] + '</em></div>' +
+      '<small class="mono">' + q + ' @ $' + px.toLocaleString(undefined, { maximumFractionDigits: 2 }) +
+      '<br>' + n.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</small>';
+    feed.insertBefore(r, feed.firstChild);
+    while (feed.children.length > 6) feed.removeChild(feed.lastChild);
+
+    pv += (Math.random() - .42) * .09;
+    var drift = (Math.random() - .44) * .18;
+    u.balance = Math.max(0, u.balance * (1 + drift / 100));
+    day[d[0]] = Math.max(-9, Math.min(9, day[d[0]] + drift));
+    document.getElementById('pl').textContent = Stacked.pct(pv);
+    renderKpis(); renderPositions();
+  }
+
+  /* ---------- deposit / withdraw ---------- */
+  var ov = document.getElementById('ov'), ovAmt = document.getElementById('ovAmt'),
+    ovErr = document.getElementById('ovErr'), mode = 'deposit';
+
+  function openOv(which) {
+    mode = which;
+    ovErr.hidden = true;
+    ovAmt.value = which === 'deposit' ? 100 : Math.min(100, Math.round(u.balance) || 1);
+    document.getElementById('ovTitle').textContent = which;
+    document.getElementById('ovLede').textContent = which === 'deposit'
+      ? 'Add money to your account. It stays in your name.'
+      : 'Take money out. No lock-ins, no exit fee.';
+    document.getElementById('ovNote').textContent = which === 'deposit'
+      ? 'Available balance: ' + Stacked.money(u.balance)
+      : 'You can withdraw up to ' + Stacked.money(u.balance) + '.';
+    ov.hidden = false;
+    ovAmt.focus();
+  }
+  function closeOv() { ov.hidden = true; }
+
+  function confirmOv() {
+    var amt = Math.round(Number(ovAmt.value));
+    if (!amt || amt < 1) { ovErr.textContent = 'Enter an amount of at least $1.'; ovErr.hidden = false; return; }
+    if (mode === 'withdraw' && amt > u.balance) {
+      ovErr.textContent = 'You can withdraw up to ' + Stacked.money(u.balance) + '.';
+      ovErr.hidden = false; return;
+    }
+    if (mode === 'deposit') {
+      u.balance += amt; u.start += amt;
+      u.activity.push({ kind: 'deposit', label: 'Deposit', amount: amt, at: Date.now() });
+    } else {
+      u.balance -= amt; u.start = Math.max(0, u.start - amt);
+      u.activity.push({ kind: 'withdraw', label: 'Withdrawal', amount: amt, at: Date.now() });
+    }
+    renderAll();
+    closeOv();
+  }
+
+  /* ---------- wire up ---------- */
+  document.getElementById('dep').addEventListener('click', function () { openOv('deposit'); });
+  document.getElementById('wd').addEventListener('click', function () { openOv('withdraw'); });
+  document.getElementById('ovX').addEventListener('click', closeOv);
+  document.getElementById('ovGo').addEventListener('click', confirmOv);
+  ov.addEventListener('click', function (e) {
+    if (e.target === ov) return closeOv();
+    var c = e.target.closest('[data-amt]');
+    if (c) ovAmt.value = c.dataset.amt;
+  });
+  document.getElementById('ovAmt').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); confirmOv(); }
+  });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape' && !ov.hidden) closeOv(); });
+
+  document.getElementById('vibes').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-v]');
+    if (!b) return;
+    u.vibe = b.dataset.v;
+    document.getElementById('vibeBadge').textContent = u.vibe;
+    renderVibes(); renderPositions(); persist();
+  });
+
+  document.getElementById('out').addEventListener('click', function () {
+    Stacked.signOut();
+    location.assign('signin.html');
+  });
+
+  /* ---------- go ---------- */
+  renderHead();
+  renderAll();
+  for (var z = 0; z < 5; z++) addTrade();
+  setInterval(addTrade, still ? 6000 : 2600);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+// Prisma schema for stacked.
+//
+// Money is stored in integer cents (`amountCents`) everywhere — never floats.
+// Balances are NOT stored on Account; they are derived by summing ledger
+// entries, so the ledger is the single source of truth.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Vibe {
+  CHILL
+  BALANCED
+  FULL_SEND
+}
+
+enum LedgerType {
+  DEPOSIT
+  WITHDRAWAL
+  TRADE
+  FEE
+}
+
+enum AccountStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  RESTRICTED
+  CLOSED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          String    @default("user")
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  account     Account?
+  riskProfile RiskProfile?
+
+  @@index([createdAt])
+}
+
+model Account {
+  id        String        @id @default(cuid())
+  userId    String        @unique
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vibe      Vibe          @default(BALANCED)
+  status    AccountStatus @default(ACTIVE)
+  currency  String        @default("USD")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  entries LedgerEntry[]
+}
+
+/// Append-only record of everything that moves money.
+/// Signed: credits are positive, debits are negative.
+model LedgerEntry {
+  id          String     @id @default(cuid())
+  accountId   String
+  account     Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  type        LedgerType
+  amountCents Int
+  label       String
+  note        String?
+  createdAt   DateTime   @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+/// The audit trail for the risk acknowledgement shown during onboarding.
+/// Compliance needs the disclosure version and the timestamp, not just a checkbox.
+model RiskProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vibe              Vibe
+  disclosureVersion String
+  acknowledgedAt    DateTime
+  createdAt         DateTime @default(now())
+}
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  vibe      Vibe?
+  amount    Int?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>stacked. we trade, you chill.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Instrument+Serif:ital@0;1&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--fg:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:#000;color:#fff;font-family:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',sans-serif;overflow-x:hidden;cursor:none}
+a,button,input{cursor:none;font:inherit}
+.serif{font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-style:italic;font-weight:400}
+.mono{font-family:'Space Mono',ui-monospace,Menlo,monospace}
+#dot{position:fixed;top:0;left:0;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:#fff;mix-blend-mode:difference;pointer-events:none;z-index:99;transition:width .2s,height .2s,margin .2s}
+#dot.big{width:80px;height:80px;margin:-40px 0 0 -40px}
+nav{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:18px 28px;z-index:50;mix-blend-mode:difference;color:#fff}
+nav b{font-size:26px;font-weight:800;letter-spacing:-.05em}
+nav a{color:#fff;text-decoration:none;border:2px solid #fff;padding:8px 18px;border-radius:99px;font-weight:600;transition:background .2s,color .2s}
+nav a:hover{background:#fff;color:#000}
+nav .nl{display:flex;gap:10px;align-items:center}
+nav a.bare{border:0;padding:8px 6px;text-decoration:underline;text-underline-offset:4px}
+nav a.bare:hover{background:none;color:#fff;text-decoration-thickness:2px}
+.hero{position:relative;min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:flex-end;padding:120px 28px 48px}
+#c{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero>*:not(#c){position:relative;z-index:1;pointer-events:none}
+.hero .cta{pointer-events:auto}
+h1{margin:0;font-size:clamp(56px,14vw,210px);line-height:.86;letter-spacing:-.05em;font-weight:500}
+h1 .ln{display:block;white-space:nowrap}
+.ch{display:inline-block;transition:font-variation-settings .15s;font-variation-settings:'wght' 300,'wdth' 75;animation:drop .9s cubic-bezier(.2,.9,.2,1) backwards;animation-delay:calc(var(--i)*45ms)}
+@keyframes drop{from{transform:translateY(-120%) rotate(-25deg);opacity:0}}
+.out{-webkit-text-stroke:2px #fff;color:transparent;transition:color .3s;pointer-events:auto}
+.out:hover{color:#fff}
+.sub{max-width:460px;font-size:20px;line-height:1.35;margin:28px 0}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;background:#fff;color:#000;border:2px solid #fff;padding:16px 28px;border-radius:99px;font-weight:700;font-size:18px;text-decoration:none;transition:transform .2s,background .2s,color .2s}
+.btn:hover{background:#000;color:#fff;transform:rotate(-3deg) scale(1.06)}
+.btn.ghost{background:transparent;color:#fff}
+.btn.ghost:hover{background:#fff;color:#000;transform:rotate(3deg) scale(1.06)}
+.tick{background:#fff;color:#000;overflow:hidden;white-space:nowrap;border-block:2px solid #000;transform:rotate(-1.2deg);margin:0 -20px;position:relative;z-index:2}
+.tick div{display:inline-block;padding:14px 0;animation:mq 28s linear infinite;font-size:22px;font-weight:700}
+.tick:hover div{animation-play-state:paused}
+.tick span{margin:0 26px}
+@keyframes mq{to{transform:translateX(-50%)}}
+.inv{background:#fff;color:#000;padding:120px 28px}
+h2{margin:0 0 60px;font-size:clamp(44px,9vw,140px);line-height:.9;letter-spacing:-.05em;font-weight:800}
+h2 .serif{font-weight:400;letter-spacing:-.03em}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;perspective:1000px}
+.card{background:#000;color:#fff;padding:32px;border-radius:28px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s;transform-style:preserve-3d;will-change:transform}
+.card .n{font-size:110px;font-weight:800;letter-spacing:-.06em;line-height:1;transform:translateZ(60px);transition:font-variation-settings .4s;font-variation-settings:'wdth' 75}
+.card:hover .n{font-variation-settings:'wdth' 100}
+.card h3{margin:0 0 8px;font-size:30px;transform:translateZ(30px);letter-spacing:-.03em}
+.card p{margin:0;opacity:.75;line-height:1.4;transform:translateZ(20px)}
+.stats{padding:120px 28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:40px}
+.stat b{display:block;font-size:clamp(70px,11vw,170px);line-height:.9;letter-spacing:-.06em;font-weight:800;-webkit-text-stroke:2px #fff;color:transparent;transition:color .3s}
+.stat:hover b{color:#fff}
+.stat span{font-size:20px}
+.end{padding:100px 28px 60px;text-align:center;background:#000}
+.end h2{margin-bottom:40px}
+.end form{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.end input{background:#000;color:#fff;border:2px solid #fff;padding:16px 24px;border-radius:99px;font-size:18px;min-width:min(340px,100%);outline-offset:4px}
+.end input::placeholder{color:#888}
+#ok{margin-top:20px;min-height:1.5em;font-size:20px}
+footer{padding:28px;border-top:2px solid #fff;font-size:13px;line-height:1.5;opacity:.7;max-width:900px;margin:0 auto 40px;text-align:left}
+.man{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.man p{font-size:clamp(20px,2.2vw,28px);line-height:1.35;max-width:620px;margin:0 0 22px}
+.man p.serif{font-size:clamp(28px,3.4vw,46px);line-height:1.1;letter-spacing:-.02em}
+#c2{width:100%;height:520px;display:block}
+.vibe{padding:120px 28px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.vibe h2{margin-bottom:30px}
+.vibe dl{margin:0}.vibe dt{font-size:34px;font-weight:800;letter-spacing:-.04em;margin-top:26px;transition:letter-spacing .3s,font-variation-settings .3s;font-variation-settings:'wdth' 75}
+.vibe dt:hover{letter-spacing:.02em;font-variation-settings:'wdth' 100}
+.vibe dd{margin:6px 0 0;font-size:19px;line-height:1.4;opacity:.8;max-width:480px}
+.stage{--s:min(260px,64vw);perspective:1200px;width:var(--s);height:var(--s);margin:60px auto}
+.cube{position:relative;width:100%;height:100%;transform-style:preserve-3d;animation:spin 18s linear infinite}
+.stage:hover .cube{animation-play-state:paused}
+.face{position:absolute;inset:0;border:2px solid #fff;background:#000;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(30px,5vw,44px);font-weight:800;letter-spacing:-.04em;line-height:1}
+.f1{transform:translateZ(calc(var(--s)/2))}.f2{transform:rotateY(90deg) translateZ(calc(var(--s)/2))}.f3{transform:rotateY(180deg) translateZ(calc(var(--s)/2))}.f4{transform:rotateY(270deg) translateZ(calc(var(--s)/2))}
+.f2{background:#fff;color:#000}.f4{background:#fff;color:#000}
+@keyframes spin{from{transform:rotateX(-24deg) rotateY(0)}to{transform:rotateX(-24deg) rotateY(360deg)}}
+.trust{padding:40px 28px 120px}
+.trust h2{font-size:clamp(40px,7vw,110px)}
+.tg{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));border-top:2px solid #fff;border-left:2px solid #fff}
+.tg div{padding:32px;border-right:2px solid #fff;border-bottom:2px solid #fff;transition:background .25s,color .25s}
+.tg div:hover{background:#fff;color:#000}
+.tg h3{margin:0 0 10px;font-size:30px;letter-spacing:-.03em}.tg p{margin:0;line-height:1.45;opacity:.85}
+.faq{padding:100px 28px;background:#fff;color:#000}
+.faq h2{font-size:clamp(44px,8vw,120px)}
+.faq details{border-top:2px solid #000;padding:22px 0}.faq details:last-child{border-bottom:2px solid #000}
+.faq summary{list-style:none;font-size:clamp(24px,3.4vw,44px);font-weight:700;letter-spacing:-.03em;display:flex;justify-content:space-between;gap:20px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';font-size:1.2em;line-height:.9;transition:transform .3s}
+.faq details[open] summary::after{transform:rotate(135deg)}
+.faq details[open] summary{font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-weight:400}
+.faq details p{max-width:680px;font-size:20px;line-height:1.45;margin:14px 0 0}
+@media(max-width:800px){.man,.vibe{grid-template-columns:1fr}#c2{height:380px}}
+@media (prefers-reduced-motion:reduce){.cube{animation:none}}
+#dot{z-index:300}
+.fd{display:grid;grid-template-columns:.8fr 1.2fr;gap:50px;align-items:start}
+.fd p{font-size:22px;line-height:1.4;max-width:420px;margin:0 0 20px}
+.pn{background:#000;color:#fff;border-radius:28px;padding:26px;overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:end;gap:16px;padding-bottom:16px}
+.ph b{font-size:clamp(48px,7vw,96px);line-height:.9;letter-spacing:-.05em;font-weight:800}
+.ph span{font-size:13px;opacity:.7;text-align:right}
+.tr{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:14px 0;border-top:1px solid rgba(255,255,255,.3);overflow:hidden;animation:pop .5s ease-out}
+@keyframes pop{from{max-height:0;opacity:0;padding-block:0;transform:translateY(-16px)}to{max-height:110px}}
+.bd{font-weight:800;font-size:15px;padding:6px 14px;border-radius:99px;border:2px solid #fff}
+.bd.b{background:#fff;color:#000}
+.tr strong{font-size:26px;letter-spacing:-.03em;display:block;line-height:1}
+.tr em{font-size:18px;opacity:.85}
+.tr small{font-size:13px;opacity:.75;text-align:right}
+.price{padding:120px 28px}
+.pc{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.pk{border:2px solid #fff;border-radius:28px;padding:32px;transition:transform .25s}
+.pk:hover{transform:rotate(-1.5deg) translateY(-6px)}
+.pk h3{margin:0;font-size:26px}.pk b{display:block;font-size:clamp(80px,10vw,150px);letter-spacing:-.06em;line-height:1;font-weight:800;margin:10px 0}.pk p{margin:0;line-height:1.4;opacity:.85}
+.pk.hot{background:#fff;color:#000}
+.calc{margin-top:60px;border:2px solid #fff;border-radius:28px;padding:32px;display:grid;grid-template-columns:1fr 1fr;gap:40px}
+.calc h3{margin:0 0 20px;font-size:44px;font-weight:400}
+.calc label{display:block;margin-bottom:22px;font-size:20px}.calc label b{float:right}
+.calc input[type=range]{width:100%;accent-color:#fff;margin-top:10px}
+.rs div{display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.3);padding:12px 0;font-size:20px}
+.rs div:last-child{border:0;font-size:34px;font-weight:800;letter-spacing:-.03em}
+.note{font-size:13px;opacity:.65;margin-top:18px;max-width:640px}
+.end{border-top:2px solid #fff}
+#m{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.9);display:grid;place-items:center;padding:20px}
+#m[hidden]{display:none}
+.mb{background:#fff;color:#000;width:min(560px,100%);max-height:100%;overflow:auto;border-radius:28px;padding:32px 32px calc(32px + env(safe-area-inset-bottom,0px))}
+.mb h3{margin:0 0 6px;font-size:40px;letter-spacing:-.04em;line-height:1}
+.mb label{display:block;margin-top:18px;font-weight:600}
+.mb input[type=text],.mb input[type=email],.mb input[type=number]{width:100%;border:2px solid #000;border-radius:99px;padding:14px 20px;font-size:18px;margin-top:8px;background:#fff;color:#000}
+.mb .btn{background:#000;color:#fff;border-color:#000}.mb .btn:hover{background:#fff;color:#000}
+.mb .lnk{background:none;border:0;text-decoration:underline;font-size:17px;padding:16px 8px;color:#000}
+.mb :focus-visible{outline-color:#000}
+.pg{display:flex;gap:6px;margin-bottom:26px}.pg i{flex:1;height:6px;border-radius:9px;background:#ddd;transition:background .3s}.pg i.on{background:#000}
+.vb{display:block;width:100%;text-align:left;border:2px solid #000;background:#fff;color:#000;border-radius:20px;padding:16px 20px;margin-top:12px;font-size:24px;font-weight:800;letter-spacing:-.03em;transition:background .2s,color .2s,transform .2s}
+.vb:hover{background:#000;color:#fff;transform:translateX(8px)}.vb small{display:block;font-weight:400;font-size:15px;letter-spacing:0;opacity:.75}
+.chips{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}.chip{border:2px solid #000;background:#fff;color:#000;border-radius:99px;padding:8px 16px;font-weight:600}.chip:hover{background:#000;color:#fff}
+.mb label.ck{display:flex;gap:12px;font-weight:400;font-size:16px;line-height:1.35;align-items:start}.ck input{width:22px;height:22px;accent-color:#000;flex:none}
+.mrow{display:flex;gap:8px;align-items:center;margin-top:22px}
+@media(max-width:800px){.fd,.calc{grid-template-columns:1fr}}
+:focus-visible{outline:3px solid #fff;outline-offset:4px}
+.inv :focus-visible{outline-color:#000}
+@media (hover:none){body,a,button,input{cursor:auto}#dot{display:none}}
+@media (prefers-reduced-motion:reduce){.ch{animation:none}.tick div{animation:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div id="dot"></div>
+<nav><b>stacked.</b><span class="nl"><a class="bare" href="signin.html">sign in</a><a href="signup.html">sign up</a></span></nav>
+
+<header class="hero">
+  <canvas id="c" aria-hidden="true"></canvas>
+  <h1 aria-label="your money works nights">
+    <span class="ln" data-split>your money</span>
+    <span class="ln serif" data-split>works</span>
+    <span class="ln out">nights.</span>
+  </h1>
+  <p class="sub">Drop in any amount. Our traders do the trading. You watch it all live, no jargon, no gatekeeping.</p>
+  <div class="cta"><a class="btn" href="signup.html">get early access</a><a class="btn ghost" href="#how">how it works</a></div>
+</header>
+
+<div class="tick mono" aria-hidden="true"><div id="tk"></div></div>
+
+<section class="inv" id="how">
+  <h2>3 steps.<br><span class="serif">that's it.</span></h2>
+  <div class="cards">
+    <div class="card"><div class="n">1</div><div><h3>Sign up</h3><p>Two minutes. Verify who you are, tell us how much risk you're cool with.</p></div></div>
+    <div class="card"><div class="n">2</div><div><h3>Fund it</h3><p>Transfer any amount you choose. Your money stays in your name.</p></div></div>
+    <div class="card"><div class="n">3</div><div><h3>Watch us trade</h3><p>Every trade shows up in your feed. Withdraw when you want.</p></div></div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat"><b data-to="24">0</b><span class="serif">hours a day you can check in</span></div>
+  <div class="stat"><b data-to="100">0</b><span class="serif">% of trades visible to you</span></div>
+  <div class="stat"><b data-to="0">9</b><span class="serif">hidden fees. none. zero.</span></div>
+</section>
+
+<section class="inv man" id="why">
+  <div>
+    <h2>why this<br><span class="serif">exists.</span></h2>
+    <p>Your uncle has a hot tip. Your timeline has a guy selling a course. Meanwhile your money sits in an account doing basically nothing.</p>
+    <p>Trading is a full-time job, and you already have one. Or a degree. Or a side hustle. Or all three. So a real team trades, and you get the receipts.</p>
+    <p class="serif">If we can't explain a trade in one sentence, we shouldn't be making it.</p>
+  </div>
+  <canvas id="c2" aria-hidden="true"></canvas>
+</section>
+
+<section class="vibe" id="vibe">
+  <div>
+    <h2>pick your <span class="serif">vibe.</span></h2>
+    <p style="font-size:20px;max-width:480px;line-height:1.4;margin:0">You choose how much risk feels right when you sign up. You can change it later. Higher risk means bigger swings in both directions.</p>
+    <dl>
+      <dt>Chill</dt><dd>Slow and steady. Smaller moves, fewer surprises. For money you don't want to stress about.</dd>
+      <dt>Balanced</dt><dd>A mix of steady positions and bolder ones. The middle path for most people.</dd>
+      <dt>Full send</dt><dd>More active, more volatile. Only put in what you can stomach watching go up and down.</dd>
+    </dl>
+  </div>
+  <div class="stage" aria-hidden="true"><div class="cube"><div class="face f1">chill</div><div class="face f2">balanced</div><div class="face f3">full send</div><div class="face f4">your call</div></div></div>
+</section>
+
+<section class="inv fd" id="live">
+  <div>
+    <h2>watch it<br><span class="serif">live.</span></h2>
+    <p>Every move we make with your money shows up here as it happens: what we bought or sold, how much, and why.</p>
+    <p class="serif" style="font-size:34px;line-height:1.05">no black box. just receipts.</p>
+  </div>
+  <div class="pn" role="log" aria-label="Sample live trade feed">
+    <div class="ph"><div><span style="text-align:left;display:block;margin-bottom:6px">your account today</span><b id="pl">+1.42%</b></div><span class="mono">sample data,<br>not real trades</span></div>
+    <div id="fl"></div>
+  </div>
+</section>
+
+<section class="trust" id="trust">
+  <h2>trust is <span class="serif">the product.</span></h2>
+  <div class="tg">
+    <div><h3>Your name, your account</h3><p>Your funds are held in an account under your name, not ours. We trade it, we don't own it.</p></div>
+    <div><h3>Every trade, receipted</h3><p>Each buy and sell lands in your feed with the what, when and why. No black box.</p></div>
+    <div><h3>Leave whenever</h3><p>No lock-ins, no exit drama. Request a withdrawal any time.</p></div>
+    <div><h3>Real talk on risk</h3><p>We'll show you the down days as clearly as the good ones. Losses are possible, and we'll never pretend otherwise.</p></div>
+  </div>
+</section>
+
+<section class="faq" id="faq">
+  <h2>questions,<br><span class="serif">answered.</span></h2>
+  <details><summary>Can I lose money?</summary><p>Yes. All trading carries risk and you can lose some or all of what you put in. Nobody can promise returns, and we won't.</p></details>
+  <details><summary>Who's actually trading my money?</summary><p>A team of traders working within the risk level you pick. You'll see who they are and how they trade before you fund anything.</p></details>
+  <details><summary>How much do I need to start?</summary><p>You decide the amount. We'll publish the minimum at launch so there are no surprises.</p></details>
+  <details><summary>How do you make money?</summary><p>Through a clear fee that's shown up front, before you deposit. No hidden charges, ever.</p></details>
+  <details><summary>How do I get my money out?</summary><p>Tap withdraw in the app and choose the amount. We'll show you the timeline before you confirm.</p></details>
+</section>
+
+<section class="price" id="pricing">
+  <h2>what it<br><span class="serif">costs.</span></h2>
+  <div class="pc">
+    <div class="pk"><h3>Join</h3><b>$0</b><p>No sign-up fee and no monthly subscription.</p></div>
+    <div class="pk hot"><h3>Trade</h3><b>20%</b><p>Of profits only, and only when there are profits. No profit, no fee.</p></div>
+    <div class="pk"><h3>Withdraw</h3><b>$0</b><p>Take your money out any time. We don't charge you to leave.</p></div>
+  </div>
+  <div class="calc">
+    <div>
+      <h3 class="serif">try the math</h3>
+      <label>you put in <b id="av">$500</b><input type="range" id="ra" min="50" max="10000" step="50" value="500" aria-label="Amount invested"></label>
+      <label>hypothetical return <b id="rv">+10%</b><input type="range" id="rr" min="-30" max="50" step="1" value="10" aria-label="Hypothetical return percent"></label>
+    </div>
+    <div class="rs">
+      <div><span>profit or loss</span><span id="o1"></span></div>
+      <div><span>our fee</span><span id="o2"></span></div>
+      <div><span>you keep</span><span id="o3"></span></div>
+    </div>
+  </div>
+  <p class="note mono">This is an example, not a forecast. Returns aren't guaranteed and you can lose money. The 20% fee is a placeholder until final terms are set.</p>
+</section>
+
+<section class="end" id="join">
+  <h2>get in <span class="serif">early.</span></h2>
+  <form id="f"><input type="email" id="em" placeholder="you@email.com" required aria-label="Email"><button class="btn" type="submit">join waitlist</button></form>
+  <div id="ok" class="serif" role="status"></div>
+  <p class="mono" style="font-size:15px;opacity:.75;margin:26px 0 0">ready for the full thing? <a href="signup.html" style="color:#fff">create an account</a> or <a href="signin.html" style="color:#fff">sign in</a>.</p>
+</section>
+
+<footer class="mono">Investing involves risk, including loss of your capital. Past performance doesn't guarantee future results. Numbers on this page are placeholders. Stacked is not yet a registered investment manager.</footer>
+
+<div id="m" hidden role="dialog" aria-modal="true" aria-label="Join the waitlist"><div class="mb">
+  <div class="pg"><i></i><i></i><i></i><i></i></div>
+  <form id="mf" novalidate>
+    <div class="stp" data-s="1"><h3>let's get you in.</h3>
+      <label>your name<input type="text" name="name" required autocomplete="name"></label>
+      <label>email<input type="email" name="email" required autocomplete="email"></label>
+      <div class="mrow"><button class="btn" type="button" data-a="n1">next</button><button class="lnk" type="button" data-a="x">cancel</button></div></div>
+    <div class="stp" data-s="2" hidden><h3>pick your vibe.</h3>
+      <button class="vb" type="button" data-a="v" data-v="Chill">Chill<small>Slow and steady. Fewer surprises.</small></button>
+      <button class="vb" type="button" data-a="v" data-v="Balanced">Balanced<small>A mix of steady and bold.</small></button>
+      <button class="vb" type="button" data-a="v" data-v="Full send">Full send<small>More active, bigger swings.</small></button>
+      <div class="mrow"><button class="lnk" type="button" data-a="b">back</button></div></div>
+    <div class="stp" data-s="3" hidden><h3>how much to start?</h3>
+      <label>amount in USD<input type="number" name="amt" min="1" step="1" required value="100"></label>
+      <div class="chips"><button class="chip" type="button" data-a="chip" data-v="50">$50</button><button class="chip" type="button" data-a="chip" data-v="100">$100</button><button class="chip" type="button" data-a="chip" data-v="500">$500</button><button class="chip" type="button" data-a="chip" data-v="1000">$1,000</button></div>
+      <label class="ck"><input type="checkbox" name="ack" required><span>I understand trading involves risk and I can lose some or all of my money.</span></label>
+      <div class="mrow"><button class="btn" type="submit">join waitlist</button><button class="lnk" type="button" data-a="b">back</button></div></div>
+    <div class="stp" data-s="4" hidden><h3 class="serif" id="dn"></h3><p id="ds" style="font-size:19px;line-height:1.4"></p>
+      <div class="mrow"><a class="btn" href="signup.html" style="text-decoration:none">create my account</a><button class="lnk" type="button" data-a="x">done</button></div></div>
+  </form>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+var still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+// cursor
+var dot=document.getElementById('dot'),mx=innerWidth/2,my=innerHeight/2;
+addEventListener('pointermove',function(e){mx=e.clientX;my=e.clientY;dot.style.transform='translate('+mx+'px,'+my+'px)'});
+document.querySelectorAll('a,button,input,.out,.card').forEach(function(el){el.addEventListener('pointerenter',function(){dot.classList.add('big')});el.addEventListener('pointerleave',function(){dot.classList.remove('big')})});
+// split text + variable font proximity
+var chars=[],i=0;
+document.querySelectorAll('[data-split]').forEach(function(l){var t=l.textContent;l.textContent='';t.split('').forEach(function(c){var s=document.createElement('span');s.className='ch';s.style.setProperty('--i',i++);s.textContent=c===' '?'\u00a0':c;l.appendChild(s);chars.push(s)})});
+addEventListener('pointermove',function(e){chars.forEach(function(s){var r=s.getBoundingClientRect(),d=Math.hypot(e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2)),k=Math.max(0,1-d/260);s.style.fontVariationSettings="'wght' "+Math.round(300+500*k)+",'wdth' "+Math.round(75+25*k)})});
+// ticker
+var T=['NVDA +2.4%','BTC +1.1%','AAPL -0.3%','TSLA +4.7%','ETH +0.9%','MSFT +0.6%','SOL +3.2%','AMZN -0.8%','you: still in bed'],h='';
+for(var r=0;r<4;r++)T.forEach(function(x){h+='<span>'+x+'</span>'});
+document.getElementById('tk').innerHTML=h;
+// card tilt
+document.querySelectorAll('.card').forEach(function(c){c.addEventListener('pointermove',function(e){var b=c.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5;c.style.transform='rotateY('+x*22+'deg) rotateX('+-y*22+'deg)'});c.addEventListener('pointerleave',function(){c.style.transform=''})});
+// counters
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(!e.isIntersecting)return;io.unobserve(e.target);var to=+e.target.dataset.to,st=performance.now();(function f(n){var p=Math.min(1,(n-st)/1200);e.target.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(f)})(st)})},{threshold:.6});
+document.querySelectorAll('[data-to]').forEach(function(b){io.observe(b)});
+// form
+var M=document.getElementById('m'),mf=document.getElementById('mf'),st=1,D={};
+function step(n){st=n;M.querySelectorAll('.stp').forEach(function(s){s.hidden=+s.dataset.s!==n});M.querySelectorAll('.pg i').forEach(function(p,j){p.className=j<n?'on':''});var f=M.querySelector('.stp:not([hidden]) input,.stp:not([hidden]) button');if(f)f.focus()}
+function openM(em){M.hidden=false;document.body.style.overflow='hidden';if(em)mf.querySelector('[name=email]').value=em;step(1)}
+function closeM(){M.hidden=true;document.body.style.overflow=''}
+function n1(){var n=mf.querySelector('[name=name]'),e=mf.querySelector('[name=email]');if(n.reportValidity()&&e.reportValidity())step(2)}
+document.querySelectorAll('a[href="#join"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();openM()})});
+M.addEventListener('click',function(e){if(e.target===M)return closeM();var t=e.target.closest('[data-a]');if(!t)return;var a=t.dataset.a;
+if(a==='x')closeM();else if(a==='n1')n1();else if(a==='v'){D.vibe=t.dataset.v;step(3)}else if(a==='b')step(st-1);else if(a==='chip')mf.querySelector('[name=amt]').value=t.dataset.v});
+addEventListener('keydown',function(e){if(e.key==='Escape'&&!M.hidden)closeM()});
+mf.addEventListener('submit',function(e){e.preventDefault();if(st===1)return n1();if(st!==3||!mf.reportValidity())return;
+var nm=mf.querySelector('[name=name]').value.trim(),em=mf.querySelector('[name=email]').value.trim(),am=mf.querySelector('[name=amt]').value;
+document.getElementById('dn').textContent="you're in, "+nm+".";
+document.getElementById('ds').textContent="Vibe: "+D.vibe+". Starting amount: $"+Number(am).toLocaleString()+". We'll email "+em+" the moment your spot opens.";
+step(4);mf.reset()});
+document.getElementById('f').addEventListener('submit',function(e){e.preventDefault();openM(document.getElementById('em').value);e.target.reset()});
+// 3D scene
+var cv=document.getElementById('c');
+if(window.THREE){
+var rn=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true}),sc=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,.1,100);cam.position.z=7;
+var W=new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true}),B=new THREE.MeshBasicMaterial({color:0x000000});
+var g=new THREE.Group();sc.add(g);
+var core=new THREE.Mesh(new THREE.IcosahedronGeometry(1.7,1),B),wire=new THREE.Mesh(new THREE.IcosahedronGeometry(1.72,1),W);
+var knot=new THREE.Mesh(new THREE.TorusKnotGeometry(2.6,.05,160,8,2,3),new THREE.MeshBasicMaterial({color:0xffffff}));
+g.add(core,wire,knot);
+var coins=[];
+for(var k=0;k<6;k++){var cn=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.09,28),new THREE.MeshBasicMaterial({color:0xffffff})),ed=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.1,28),B);cn.add(m,ed);cn.userData.a=k/6*Math.PI*2;g.add(cn);coins.push(cn)}
+function rs(){var w=cv.clientWidth,hh=cv.clientHeight;rn.setSize(w,hh,false);rn.setPixelRatio(Math.min(devicePixelRatio,2));cam.aspect=w/hh;cam.updateProjectionMatrix();g.position.x=w>800?2.4:0;g.position.y=w>800?.3:1.6;g.scale.setScalar(w>800?1:.7)}
+rs();addEventListener('resize',rs);
+var t=0,sy=0;
+(function loop(){t+=.01;sy+=(scrollY-sy)*.08;
+g.rotation.y=t*.6+sy*.004+(mx/innerWidth-.5)*1.2;g.rotation.x=(my/innerHeight-.5)*.8+sy*.001;knot.rotation.z=t;
+coins.forEach(function(c,j){var a=c.userData.a+t*.8;c.position.set(Math.cos(a)*3.3,Math.sin(a*1.3)*1.4,Math.sin(a)*3.3);c.rotation.x=t*2+j;c.rotation.z=t+j});
+rn.render(sc,cam);if(!still)requestAnimationFrame(loop)})();
+if(still)rn.render(sc,cam);
+var c2=document.getElementById('c2'),r2=new THREE.WebGLRenderer({canvas:c2,antialias:true,alpha:true}),s2=new THREE.Scene(),k2=new THREE.PerspectiveCamera(40,1,.1,100);k2.position.set(0,1.5,9);k2.lookAt(0,.6,0);
+var K=new THREE.MeshBasicMaterial({color:0x000000}),Wt=new THREE.MeshBasicMaterial({color:0xffffff}),g2=new THREE.Group();s2.add(g2);
+for(var q=0;q<10;q++){var cg=new THREE.Group(),a1=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,.28,40),K),a2=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.15,.3,40),Wt),a3=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.32,40),K);cg.add(a1,a2,a3);cg.position.y=q*.36-1.6;cg.userData.o=q;g2.add(cg)}
+var ring=new THREE.Mesh(new THREE.TorusGeometry(2.9,.04,8,90),K),ring2=new THREE.Mesh(new THREE.TorusGeometry(2.4,.04,8,90),K);ring.rotation.x=1.2;ring2.rotation.x=1.2;ring2.rotation.y=.7;g2.add(ring,ring2);
+function rs2(){var w=c2.clientWidth,hh=c2.clientHeight;r2.setSize(w,hh,false);r2.setPixelRatio(Math.min(devicePixelRatio,2));k2.aspect=w/hh;k2.updateProjectionMatrix()}
+rs2();addEventListener('resize',rs2);
+(function l2(){var b=c2.getBoundingClientRect();if(b.bottom>0&&b.top<innerHeight){var p=(innerHeight-b.top)/(innerHeight+b.height),tt=performance.now()*.001;
+g2.children.forEach(function(o){if(o.userData.o!==undefined){o.rotation.y=p*3+o.userData.o*.35;o.position.x=Math.sin(tt+o.userData.o*.6)*.25*p*3}});
+ring.rotation.z=tt*.5;ring2.rotation.z=-tt*.7;g2.rotation.y=tt*.3+(mx/innerWidth-.5)*.6;r2.render(s2,k2)}
+if(!still)requestAnimationFrame(l2)})();
+}
+var FD=[['NVDA','BUY','earnings momentum'],['BTC','SELL','took profit at resistance'],['AAPL','BUY','dip into support'],['TSLA','SELL','volatility spike, trimming'],['ETH','BUY','breakout on volume'],['MSFT','BUY','steady cash flow, adding'],['SOL','SELL','cutting risk before news'],['AMZN','BUY','post-earnings pullback']],
+BP={NVDA:118,BTC:64200,AAPL:226,TSLA:248,ETH:2650,MSFT:420,SOL:148,AMZN:185},fl=document.getElementById('fl'),pl=document.getElementById('pl'),pv=1.42;
+function addT(){var d=FD[Math.floor(Math.random()*FD.length)],px=BP[d[0]]*(1+(Math.random()-.5)*.02),q=(Math.random()*4+.2).toFixed(2),r=document.createElement('div'),n=new Date();
+r.className='tr';r.innerHTML='<span class="bd '+(d[1]==='BUY'?'b':'')+'">'+d[1].toLowerCase()+'</span><div><strong>'+d[0]+'</strong><em class="serif">'+d[2]+'</em></div><small class="mono">'+q+' @ $'+px.toLocaleString(undefined,{maximumFractionDigits:2})+'<br>'+n.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</small>';
+fl.insertBefore(r,fl.firstChild);while(fl.children.length>6)fl.removeChild(fl.lastChild);
+pv+=(Math.random()-.42)*.09;pl.textContent=(pv>=0?'+':'')+pv.toFixed(2)+'%'}
+for(var z=0;z<5;z++)addT();setInterval(addT,still?6000:2600);
+var ra=document.getElementById('ra'),rr=document.getElementById('rr');
+function $$(n){return(n<0?'-':'')+'$'+Math.abs(Math.round(n)).toLocaleString()}
+function calc(){var a=+ra.value,r=+rr.value,p=a*r/100,f=p>0?p*.2:0;
+document.getElementById('av').textContent='$'+a.toLocaleString();document.getElementById('rv').textContent=(r>0?'+':'')+r+'%';
+document.getElementById('o1').textContent=(p>0?'+':'')+$$(p);document.getElementById('o2').textContent=$$(f);document.getElementById('o3').textContent=$$(a+p-f)}
+ra.addEventListener('input',calc);rr.addEventListener('input',calc);calc();
+})();
+</script>
+</body>
+</html>

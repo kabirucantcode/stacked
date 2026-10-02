@@ -1,0 +1,45 @@
+# Local / cloud dev environment.
+#
+#   docker compose up -d db      # just the database
+#   npm install && npm run dev   # app on the host
+#
+# Or open the repo in a Dev Container / Codespaces, which uses this file end to
+# end (see .devcontainer/devcontainer.json).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stacked
+    ports:
+      - "5432:5432"
+    volumes:
+      - stacked-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stacked"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Only used by the Dev Container definition — runs the toolchain for you.
+  app:
+    image: mcr.microsoft.com/devcontainers/javascript-node:22
+    working_dir: /workspace
+    command: sleep infinity
+    volumes:
+      - .:/workspace:cached
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/stacked?schema=public
+      AUTH_SECRET: dev-only-secret-change-me-0000000000000000000000000000
+      AUTH_TRUST_HOST: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  stacked-db:
