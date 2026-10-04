@@ -109,9 +109,14 @@ app/
     auth/resend-verification  POST re-send the confirmation email (signed in)
     register                  create user + account + risk profile + opening entry
     waitlist                  public, idempotent on email
-    account                   GET  summary + positions + activity
-    account/move              POST sandbox deposit / withdrawal
+    account                   GET  summary + positions + activity + trades
+    account/move              POST sandbox withdrawal (requires Idempotency-Key)
     account/vibe              PUT  change risk level (re-records acknowledgement)
+    crypto/address            GET  the user's receiving address (assigns on first call)
+    crypto/sync               POST scan that address and credit confirmed transfers
+    demo/tick                 POST heartbeat: maybe one demo trade + fresh state
+    cron/sync-deposits        POST scheduler sweep (Authorization: Bearer CRON_SECRET)
+    cron/demo-trades          POST scheduler sweep (Authorization: Bearer CRON_SECRET)
     session/ephemeral         POST "keep me signed in" = off
     health                    liveness + DB check (Render health check)
 components/
@@ -122,10 +127,13 @@ components/
   ForgotPasswordForm.tsx      request a reset link
   ResetPasswordForm.tsx       consume the reset token
   VerifyEmail.tsx             consume the verification token
-  Dashboard.tsx               KPI cards, feed, positions, activity, money dialog
+  Dashboard.tsx               KPI cards, demo feed, positions, activity, withdraw
+  CryptoDepositPanel.tsx      receiving address, copy, "check for deposits"
 lib/
   prisma.ts  password.ts  auth.ts  tokens.ts  email.ts  rate-limit.ts
   ledger.ts  vibes.ts  validation.ts  format.ts
+  idempotency.ts  crypto.ts  etherscan.ts  prices.ts
+  demo-trading.ts  account-payload.ts  cron-auth.ts  prisma-errors.ts
 prisma/schema.prisma
 ```
 
@@ -138,6 +146,11 @@ prisma/schema.prisma
   disclosure version, and when. Updating the vibe re-records it.
 - **Token** — single-use email-verification / password-reset tokens. Only the
   SHA-256 hash is stored, so a database leak can't hand out working reset links.
+- **IdempotencyKey** — one row per money-moving intent, unique on `(scope, key)`.
+- **DepositAddress** — a watch-only receiving address, assigned to at most one user.
+- **CryptoDeposit** — one on-chain transfer, unique on
+  `(chainId, txHash, assetKey)`.
+- **DemoTrade** — a simulated trade; the ledger entry it writes says so.
 - **WaitlistEntry** — marketing signups.
 
 Passwords are hashed with Node's built-in **scrypt** (no native dependency, so
@@ -155,24 +168,45 @@ Render builds stay simple).
 - Password changes bump a token version, which **invalidates every existing
   session** — a reset link can't be used to hijack a live session.
 - Account, risk profile, and the risk-acknowledgement audit trail.
-- Balances derived from the ledger; deposits and withdrawals as ledger entries.
+- Balances derived from the ledger.
+- **Crypto deposits** — real on-chain transfers detected via Etherscan and
+  credited once they are confirmed and priced.
 - The dashboard **activity** list and all KPI figures.
 - The marketing waitlist.
 
 **Simulated (clearly labelled in the UI):**
 
+- **Trades** — `lib/demo-trading.ts` invents a plausible P&L and writes a real
+  ledger entry so the dashboard has live data. There is no broker, no order and
+  no fill. Every entry it writes says "Demo trade — simulated, not real money."
 - **Positions / allocation** — derived from `balance × vibe weights`
-  (`lib/vibes.ts`). There is no broker, so these are illustrative.
-- **Prices and the trade feed** — client-side sample data, labelled
-  "sample data, not real trades".
-- **Deposits / withdrawals** — write real ledger rows, but **no payment rail is
-  connected**, so no money moves. Every entry they create says "Sandbox".
+  (`lib/vibes.ts`). Illustrative until a broker is connected.
+- **Withdrawals** — write a real ledger row and debit the balance, but no payout
+  rail is connected, so nothing leaves. Every entry says "Sandbox".
 
-**Not implemented:** KYC/AML, bank linking, notifications beyond the
-verification/reset emails, admin tooling, and a password change while already
-signed in (use the reset flow for now).
+**Not implemented:** KYC/AML, a withdrawal review/payout flow, fiat rails,
+notifications beyond the verification/reset emails, admin tooling, and a password
+change while already signed in (use the reset flow).
 
 ---
+
+## Crypto deposits
+
+1. Set `DEPOSIT_ADDRESSES` (comma-separated, pre-generated in your custody
+   wallet) and `ETHERSCAN_API_KEY`.
+2. Each user is assigned one address on first request, so attribution never
+   relies on a memo field — ERC-20 transfers don't have one.
+3. `POST /api/crypto/sync`, or the `cron/sync-deposits` sweep, scans that address.
+4. A transfer is credited only when it has `CRYPTO_MIN_CONFIRMATIONS` **and** we
+   know its USD price. Unpriced tokens are recorded but never credited, because
+   crediting at a guessed price would silently move money.
+
+Schedules: point a scheduler at `/api/cron/sync-deposits` and
+`/api/cron/demo-trades` with `Authorization: Bearer $CRON_SECRET`. Render cron
+jobs work, but so does anything else.
+
+**Addresses are watch-only.** Nothing in this app holds a key that can move
+funds; moving crypto into the custody wallet requires a key it never sees.
 
 ## Security notes
 
@@ -186,6 +220,10 @@ signed in (use the reset flow for now).
   so a token can't be replayed by a racing request.
 - `forgot-password` always returns the same response, so it can't be used to
   discover which emails have accounts.
+- Money endpoints require an `Idempotency-Key`. The unique constraint on
+  `(scope, key)` is the lock, so retries replay instead of double-crediting.
+- Crypto crediting is guarded twice: the unique `(chainId, txHash, assetKey)`
+  constraint, plus a conditional update that only flips `creditedAt` once.
 - **No middleware file on purpose** — Auth.js middleware would pull Prisma into
   the Edge runtime. Page-level gates + API checks cover it without that hazard.
 - `AUTH_SECRET` must be set in every environment; it is never committed.
@@ -197,8 +235,8 @@ signed in (use the reset flow for now).
 | Phase | Scope |
 |---|---|
 | **0 · done** | Database, auth, ledger, authenticated dashboard, waitlist |
-| **1 · in progress** | ✅ email verification, ✅ password reset + session invalidation, ✅ rate limits on auth endpoints — remaining: KYC screens, provider integration |
-| **2** | Payment rail + broker in sandbox, real positions, statements, admin |
+| **1 · in progress** | ✅ email verification, ✅ password reset + session invalidation, ✅ rate limits, ✅ idempotent money operations, ✅ crypto deposits, ✅ demo trading — remaining: KYC screens, 2FA + session management |
+| **2** | Broker/custodian integration, real positions, withdrawal review + payout, statements, admin |
 | **3** | Live — only after legal and compliance sign-off |
 
 Real trading and custody are **regulated**. The intended path is to integrate a

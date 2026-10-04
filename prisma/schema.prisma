@@ -49,6 +49,7 @@ model User {
   account     Account?
   riskProfile RiskProfile?
   tokens      Token[]
+  depositAddress DepositAddress?
 
   @@index([createdAt])
 }
@@ -63,7 +64,9 @@ model Account {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  entries LedgerEntry[]
+  entries        LedgerEntry[]
+  cryptoDeposits CryptoDeposit[]
+  demoTrades     DemoTrade[]
 }
 
 /// Append-only record of everything that moves money.
@@ -120,4 +123,74 @@ model Token {
   createdAt  DateTime  @default(now())
 
   @@index([userId, type])
+}
+
+/// Idempotency guard for money-moving endpoints.
+/// The unique constraint on (scope, key) is the lock: whichever request inserts
+/// the row first performs the operation; everyone else replays the stored result.
+model IdempotencyKey {
+  id          String    @id @default(cuid())
+  scope       String
+  key         String
+  status      Int?
+  response    String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([scope, key])
+}
+
+/// A receiving address users send crypto to. Addresses are pre-generated in a
+/// custody wallet and assigned to at most one user, so attribution never relies
+/// on a memo field (ERC-20 transfers don't have one).
+model DepositAddress {
+  id         String    @id @default(cuid())
+  address    String    @unique
+  chainId    Int       @default(1)
+  label      String?
+  userId     String?   @unique
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  assignedAt DateTime?
+}
+
+/// One on-chain transfer detected for an account.
+/// `@@unique([chainId, txHash, assetKey])` is the idempotency guard: the same
+/// transfer can never be credited twice, no matter how often we re-scan.
+model CryptoDeposit {
+  id            String    @id @default(cuid())
+  accountId     String
+  account       Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  chainId       Int       @default(1)
+  txHash        String
+  /// "native" for ETH, otherwise the token contract address (lower-cased).
+  assetKey      String
+  fromAddress   String
+  tokenSymbol   String
+  decimals      Int
+  /// Raw base units as a string, so uint256 values survive as BigInt.
+  amountRaw     String
+  amountCents   Int?
+  confirmations Int       @default(0)
+  creditedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([chainId, txHash, assetKey])
+  @@index([accountId, createdAt])
+}
+
+/// A simulated trade. No broker, no order, no fill — see lib/demo-trading.ts.
+model DemoTrade {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  symbol    String
+  side      String
+  reason    String
+  quantity  Float
+  priceUsd  Float
+  pnlCents  Int
+  createdAt DateTime @default(now())
+
+  @@index([accountId, createdAt])
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 
+import CryptoDepositPanel from "@/components/CryptoDepositPanel";
 import { dollarsToCents, formatMoney, formatPct, formatSignedMoney } from "@/lib/format";
 
 type VibeKey = "CHILL" | "BALANCED" | "FULL_SEND";
@@ -26,6 +27,28 @@ type ActivityEntry = {
   at: string;
 };
 
+type DemoTrade = {
+  id: string;
+  symbol: string;
+  side: string;
+  reason: string;
+  quantity: number;
+  priceUsd: number;
+  pnlCents: number;
+  at: string;
+};
+
+type CryptoDeposit = {
+  id: string;
+  tokenSymbol: string;
+  amountRaw: string;
+  amountCents: number | null;
+  confirmations: number;
+  credited: boolean;
+  txHash: string;
+  at: string;
+};
+
 type AccountPayload = {
   user: { name: string; email: string; emailVerified: boolean };
   account: {
@@ -36,9 +59,19 @@ type AccountPayload = {
     balanceCents: number;
     netDepositedCents: number;
     profitLossCents: number;
+    todayPnlCents: number;
+    todayPct: number;
   };
   positions: Position[];
   activity: ActivityEntry[];
+  trades: DemoTrade[];
+  crypto: {
+    configured: boolean;
+    accepted: string[];
+    minConfirmations: number;
+    deposits: CryptoDeposit[];
+  };
+  demo: { enabled: boolean };
 };
 
 const VIBE_CHOICES: { key: VibeKey; label: string }[] = [
@@ -47,96 +80,41 @@ const VIBE_CHOICES: { key: VibeKey; label: string }[] = [
   { key: "FULL_SEND", label: "Full send" },
 ];
 
-/** Sample market feed — explicitly labelled in the UI. Not real trades. */
-const SAMPLE_TRADES = [
-  ["NVDA", "BUY", "earnings momentum"],
-  ["BTC", "SELL", "took profit at resistance"],
-  ["AAPL", "BUY", "dip into support"],
-  ["TSLA", "SELL", "volatility spike, trimming"],
-  ["ETH", "BUY", "breakout on volume"],
-  ["MSFT", "BUY", "steady cash flow, adding"],
-  ["SOL", "SELL", "cutting risk before news"],
-  ["AMZN", "BUY", "post-earnings pullback"],
-] as const;
-
-const SAMPLE_PRICE: Record<string, number> = {
-  NVDA: 118,
-  BTC: 64200,
-  AAPL: 226,
-  TSLA: 248,
-  ETH: 2650,
-  MSFT: 420,
-  SOL: 148,
-  AMZN: 185,
-};
-
-type SampleTrade = {
-  id: string;
-  side: string;
-  symbol: string;
-  why: string;
-  quantity: string;
-  price: number;
-  at: string;
-};
-
-function makeTrade(): SampleTrade {
-  const [symbol, side, why] = SAMPLE_TRADES[Math.floor(Math.random() * SAMPLE_TRADES.length)];
-  const base = SAMPLE_PRICE[symbol] ?? 100;
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    side,
-    symbol,
-    why,
-    quantity: (Math.random() * 4 + 0.2).toFixed(2),
-    price: base * (1 + (Math.random() - 0.5) * 0.02),
-    at: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-  };
-}
-
 function greeting() {
   const hour = new Date().getHours();
   return hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
 }
 
+function clockTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/** Stable, unique-enough key for one money-moving intent. */
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `key-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+type WithdrawDialog = { amount: string; error: string | null; busy: boolean; key: string };
+
 export default function Dashboard() {
   const [data, setData] = useState<AccountPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [feed, setFeed] = useState<SampleTrade[]>([]);
-  const [todayPct, setTodayPct] = useState(1.42);
-  const dayDrift = useRef<Record<string, number>>({});
 
-  const [dialog, setDialog] = useState<{ mode: "deposit" | "withdraw"; amount: string; error: string | null; busy: boolean } | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<WithdrawDialog | null>(null);
+  const [cryptoOpen, setCryptoOpen] = useState(false);
   const [vibeBusy, setVibeBusy] = useState(false);
-  const [resend, setResend] = useState<{ busy: boolean; message: string | null; error: string | null }>({
-    busy: false,
-    message: null,
-    error: null,
-  });
-
-  async function resendVerification() {
-    setResend({ busy: true, message: null, error: null });
-    try {
-      const response = await fetch("/api/auth/resend-verification", { method: "POST" });
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        message?: string;
-      };
-      if (!response.ok) {
-        setResend({ busy: false, message: null, error: payload.error ?? "Couldn't send that email." });
-        return;
-      }
-      setResend({
-        busy: false,
-        message: payload.message ?? "Confirmation email sent.",
-        error: null,
-      });
-    } catch {
-      setResend({ busy: false, message: null, error: "We couldn't reach the server." });
-    }
-  }
+  const [resend, setResend] = useState<{
+    busy: boolean;
+    message: string | null;
+    error: string | null;
+  }>({ busy: false, message: null, error: null });
 
   const refresh = useCallback(async () => {
     try {
@@ -146,15 +124,8 @@ export default function Dashboard() {
         return;
       }
       if (!response.ok) throw new Error("request failed");
-      const payload = (await response.json()) as AccountPayload;
-      setData(payload);
+      setData((await response.json()) as AccountPayload);
       setLoadError(null);
-
-      for (const position of payload.positions) {
-        if (!(position.symbol in dayDrift.current)) {
-          dayDrift.current[position.symbol] = position.symbol === "CASH" ? 0 : (Math.random() - 0.45) * 6;
-        }
-      }
     } catch {
       setLoadError("We couldn't load your account. Refresh to try again.");
     }
@@ -164,18 +135,44 @@ export default function Dashboard() {
     void refresh();
   }, [refresh]);
 
-  // Sample feed + sample "today" movement, purely presentational.
+  // Server-authoritative heartbeat: each tick may execute one demo trade and
+  // returns fresh state, so two open tabs can't disagree.
   useEffect(() => {
-    setFeed(Array.from({ length: 5 }, makeTrade));
-    const reduced = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
-    const timer = window.setInterval(() => {
-      setFeed((current) => [makeTrade(), ...current].slice(0, 6));
-      setTodayPct((value) => value + (Math.random() - 0.42) * 0.09);
-    }, reduced ? 6000 : 2600);
-    return () => window.clearInterval(timer);
-  }, []);
+    if (!data?.demo.enabled) return;
 
-  // Close the money dialog on Escape.
+    const reduced = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+    const period = reduced ? 15000 : 7000;
+    let cancelled = false;
+    let inFlight = false;
+
+    const timer = window.setInterval(() => {
+      if (cancelled || inFlight || document.hidden) return;
+      inFlight = true;
+
+      void (async () => {
+        try {
+          const response = await fetch("/api/demo/tick", { method: "POST", cache: "no-store" });
+          if (response.status === 401) {
+            window.location.assign("/signin");
+            return;
+          }
+          if (response.ok && !cancelled) {
+            setData((await response.json()) as AccountPayload);
+          }
+        } catch {
+          /* a dropped tick isn't worth telling the user about */
+        } finally {
+          inFlight = false;
+        }
+      })();
+    }, period);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [data?.demo.enabled]);
+
   useEffect(() => {
     if (!dialog) return;
     const onKey = (event: KeyboardEvent) => {
@@ -185,8 +182,9 @@ export default function Dashboard() {
     return () => window.removeEventListener("keydown", onKey);
   }, [dialog]);
 
-  async function move() {
+  async function withdraw() {
     if (!dialog) return;
+
     const amountCents = dollarsToCents(dialog.amount);
     if (!Number.isFinite(amountCents) || amountCents < 100) {
       setDialog({ ...dialog, error: "Enter an amount of at least $1." });
@@ -197,14 +195,20 @@ export default function Dashboard() {
     try {
       const response = await fetch("/api/account/move", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ direction: dialog.mode, amountCents }),
+        headers: {
+          "Content-Type": "application/json",
+          // Same key on retry → the server replays instead of debiting twice.
+          "Idempotency-Key": dialog.key,
+        },
+        body: JSON.stringify({ direction: "withdraw", amountCents }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
       if (!response.ok) {
         setDialog({ ...dialog, busy: false, error: payload.error ?? "That didn't work. Try again." });
         return;
       }
+
       setDialog(null);
       await refresh();
     } catch {
@@ -227,14 +231,23 @@ export default function Dashboard() {
     }
   }
 
-  const positions = data?.positions ?? [];
-  const activity = data?.activity ?? [];
-
-  const kpis = useMemo(() => {
-    if (!data) return null;
-    const { balanceCents, netDepositedCents, profitLossCents } = data.account;
-    return { balanceCents, netDepositedCents, profitLossCents };
-  }, [data]);
+  async function resendVerification() {
+    setResend({ busy: true, message: null, error: null });
+    try {
+      const response = await fetch("/api/auth/resend-verification", { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!response.ok) {
+        setResend({ busy: false, message: null, error: payload.error ?? "Couldn't send that email." });
+        return;
+      }
+      setResend({ busy: false, message: payload.message ?? "Confirmation email sent.", error: null });
+    } catch {
+      setResend({ busy: false, message: null, error: "We couldn't reach the server." });
+    }
+  }
 
   if (loadError) {
     return (
@@ -247,7 +260,7 @@ export default function Dashboard() {
     );
   }
 
-  if (!data || !kpis) {
+  if (!data) {
     return (
       <main className="wrap">
         <div className="panel">
@@ -257,6 +270,7 @@ export default function Dashboard() {
     );
   }
 
+  const { account } = data;
   const firstName = data.user.name.split(" ")[0];
 
   return (
@@ -283,18 +297,16 @@ export default function Dashboard() {
             </p>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="badge">{data.account.vibeLabel}</span>
-            <button
-              className="btn sm"
-              type="button"
-              onClick={() => setDialog({ mode: "deposit", amount: "100", error: null, busy: false })}
-            >
+            <span className="badge">{account.vibeLabel}</span>
+            <button className="btn sm" type="button" onClick={() => setCryptoOpen(true)}>
               deposit
             </button>
             <button
               className="btn ghost sm"
               type="button"
-              onClick={() => setDialog({ mode: "withdraw", amount: "100", error: null, busy: false })}
+              onClick={() =>
+                setDialog({ amount: "100", error: null, busy: false, key: newIdempotencyKey() })
+              }
             >
               withdraw
             </button>
@@ -336,25 +348,27 @@ export default function Dashboard() {
         <section className="kpis" aria-label="Account summary">
           <div className="kpi">
             <span>portfolio value</span>
-            <b>{formatMoney(kpis.balanceCents)}</b>
+            <b>{formatMoney(account.balanceCents)}</b>
             <small className="mono">in your name</small>
           </div>
           <div className="kpi">
             <span>today</span>
-            <b>{formatPct(todayPct)}</b>
-            <small className="mono">sample movement</small>
+            <b className={account.todayPnlCents < 0 ? "neg" : ""}>{formatPct(account.todayPct)}</b>
+            <small className="mono">
+              {account.todayPnlCents === 0 ? "no trades yet" : formatSignedMoney(account.todayPnlCents)}
+            </small>
           </div>
           <div className="kpi">
             <span>you put in</span>
-            <b>{formatMoney(kpis.netDepositedCents)}</b>
+            <b>{formatMoney(account.netDepositedCents)}</b>
             <small className="mono">
-              {activity.length} movement{activity.length === 1 ? "" : "s"}
+              {data.activity.length} movement{data.activity.length === 1 ? "" : "s"}
             </small>
           </div>
           <div className="kpi">
             <span>profit / loss</span>
-            <b className={kpis.profitLossCents < 0 ? "neg" : ""}>
-              {formatSignedMoney(kpis.profitLossCents)}
+            <b className={account.profitLossCents < 0 ? "neg" : ""}>
+              {formatSignedMoney(account.profitLossCents)}
             </b>
             <small className="mono">since you joined</small>
           </div>
@@ -362,38 +376,44 @@ export default function Dashboard() {
 
         <div className="dash-grid">
           <div className="col">
-            <section className="pn" aria-label="Sample trade feed">
+            <section className="pn" aria-label="Demo trade feed">
               <div className="ph">
                 <div>
                   <span style={{ textAlign: "left", display: "block", marginBottom: 6 }}>
                     your account today
                   </span>
-                  <b>{formatPct(todayPct)}</b>
+                  <b>{formatPct(account.todayPct)}</b>
                 </div>
                 <span className="mono">
-                  sample data,
+                  demo trades,
                   <br />
-                  not real trades
+                  not real money
                 </span>
               </div>
               <div role="log" aria-live="polite">
-                {feed.map((trade) => (
-                  <div className="tr" key={trade.id}>
-                    <span className={`bd ${trade.side === "BUY" ? "b" : ""}`}>
-                      {trade.side.toLowerCase()}
-                    </span>
-                    <div>
-                      <strong>{trade.symbol}</strong>
-                      <em className="serif">{trade.why}</em>
+                {data.trades.length === 0 ? (
+                  <p className="hint" style={{ padding: "14px 0" }}>
+                    No trades yet. Fund the account and demo trades will start landing here.
+                  </p>
+                ) : (
+                  data.trades.map((trade) => (
+                    <div className="tr" key={trade.id}>
+                      <span className={`bd ${trade.side === "BUY" ? "b" : ""}`}>
+                        {trade.side.toLowerCase()}
+                      </span>
+                      <div>
+                        <strong>{trade.symbol}</strong>
+                        <em className="serif">{trade.reason}</em>
+                      </div>
+                      <small className="mono">
+                        {trade.quantity} @ $
+                        {trade.priceUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        <br />
+                        {clockTime(trade.at)} · {formatSignedMoney(trade.pnlCents)}
+                      </small>
                     </div>
-                    <small className="mono">
-                      {trade.quantity} @ $
-                      {trade.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                      <br />
-                      {trade.at}
-                    </small>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
 
@@ -402,39 +422,34 @@ export default function Dashboard() {
                 what you <span className="serif">own.</span>
               </h2>
               <p className="hint">
-                Illustrative allocation for your risk level — positions become real once trading is
-                connected.
+                Target allocation for your risk level, scaled to your balance. Positions become real
+                once a broker is connected.
               </p>
               <table className="table">
                 <thead>
                   <tr>
                     <th>position</th>
                     <th className="r">value</th>
-                    <th className="r">today</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {positions.map((position) => {
-                    const drift = dayDrift.current[position.symbol] ?? 0;
-                    return (
-                      <tr key={position.symbol}>
-                        <td>
-                          <span className="sym">{position.label}</span>
-                          <span className="why">
-                            {position.why} · {position.weight}%
+                  {data.positions.map((position) => (
+                    <tr key={position.symbol}>
+                      <td>
+                        <span className="sym">{position.label}</span>
+                        <span className="why">
+                          {position.why} · {position.weight}%
+                        </span>
+                        {position.quantity !== null && position.price !== null ? (
+                          <span className="why mono">
+                            {position.quantity.toFixed(4)} @ $
+                            {position.price.toLocaleString("en-US")}
                           </span>
-                          {position.quantity !== null && position.price !== null ? (
-                            <span className="why mono">
-                              {position.quantity.toFixed(4)} @ $
-                              {position.price.toLocaleString("en-US")}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="r num">{formatMoney(position.valueCents)}</td>
-                        <td className={`r num${drift < 0 ? " neg" : ""}`}>{formatPct(drift)}</td>
-                      </tr>
-                    );
-                  })}
+                        ) : null}
+                      </td>
+                      <td className="r num">{formatMoney(position.valueCents)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </section>
@@ -455,7 +470,7 @@ export default function Dashboard() {
                     key={choice.key}
                     className="chip inv"
                     type="button"
-                    aria-pressed={data.account.vibe === choice.key}
+                    aria-pressed={account.vibe === choice.key}
                     disabled={vibeBusy}
                     onClick={() => void changeVibe(choice.key)}
                   >
@@ -464,18 +479,18 @@ export default function Dashboard() {
                 ))}
               </div>
               <p className="hint" style={{ marginTop: 16 }}>
-                {data.account.vibeNote}
+                {account.vibeNote}
               </p>
             </section>
 
             <section className="panel">
               <h2>activity.</h2>
-              <p className="hint">Every deposit, withdrawal and fee, in order.</p>
-              {activity.length === 0 ? (
+              <p className="hint">Every deposit, withdrawal, trade and fee, in order.</p>
+              {data.activity.length === 0 ? (
                 <p className="hint">Nothing yet.</p>
               ) : (
                 <ul className="act">
-                  {activity.map((entry) => {
+                  {data.activity.map((entry) => {
                     const negative = entry.amountCents < 0;
                     return (
                       <li key={entry.id}>
@@ -508,33 +523,37 @@ export default function Dashboard() {
                 the fine <span className="serif">print.</span>
               </h2>
               <p className="hint" style={{ margin: 0 }}>
-                Trading carries risk and you can lose some or all of your money. Balances, deposits
-                and withdrawals on this page are real records in the app database, but{" "}
-                <strong>no real money moves</strong> until a payment rail is connected. Prices,
-                positions and the trade feed are simulated for illustration.
+                <strong>This is a demo.</strong> Trades on this page are simulated — there is no
+                broker, no order and no market data behind them, and no real money is at risk. Crypto
+                deposits do arrive on-chain and are recorded in a real ledger, but they are not
+                invested in anything yet.
               </p>
             </section>
           </div>
         </div>
       </main>
 
+      <CryptoDepositPanel
+        open={cryptoOpen}
+        onClose={() => setCryptoOpen(false)}
+        onCredited={() => void refresh()}
+        deposits={data.crypto.deposits}
+        minConfirmations={data.crypto.minConfirmations}
+      />
+
       {dialog ? (
         <div
           className="overlay"
           role="dialog"
           aria-modal="true"
-          aria-label={`${dialog.mode} money`}
+          aria-label="Withdraw money"
           onClick={(event) => {
             if (event.target === event.currentTarget) setDialog(null);
           }}
         >
           <div className="paper">
-            <h1>{dialog.mode}</h1>
-            <p className="lede">
-              {dialog.mode === "deposit"
-                ? "Add money to your account. It stays in your name."
-                : "Take money out. No lock-ins, no exit fee."}
-            </p>
+            <h1>withdraw</h1>
+            <p className="lede">Take money out. No lock-ins, no exit fee.</p>
 
             {dialog.error ? (
               <div className="alert" role="alert">
@@ -550,11 +569,19 @@ export default function Dashboard() {
                 step={1}
                 value={dialog.amount}
                 autoFocus
-                onChange={(event) => setDialog({ ...dialog, amount: event.target.value, error: null })}
+                onChange={(event) =>
+                  // A different amount is a different intent, so it gets a new key.
+                  setDialog({
+                    ...dialog,
+                    amount: event.target.value,
+                    error: null,
+                    key: newIdempotencyKey(),
+                  })
+                }
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    void move();
+                    void withdraw();
                   }
                 }}
               />
@@ -565,14 +592,16 @@ export default function Dashboard() {
                   key={value}
                   className="chip"
                   type="button"
-                  onClick={() => setDialog({ ...dialog, amount: value, error: null })}
+                  onClick={() =>
+                    setDialog({ ...dialog, amount: value, error: null, key: newIdempotencyKey() })
+                  }
                 >
                   ${Number(value).toLocaleString("en-US")}
                 </button>
               ))}
             </div>
             <div className="mrow">
-              <button className="btn dark" type="button" disabled={dialog.busy} onClick={() => void move()}>
+              <button className="btn dark" type="button" disabled={dialog.busy} onClick={() => void withdraw()}>
                 {dialog.busy ? "working…" : "confirm"}
               </button>
               <button className="lnk" type="button" onClick={() => setDialog(null)}>
@@ -580,9 +609,8 @@ export default function Dashboard() {
               </button>
             </div>
             <p className="foot mono muted">
-              {dialog.mode === "deposit"
-                ? `Available balance: ${formatMoney(kpis.balanceCents)}`
-                : `You can withdraw up to ${formatMoney(kpis.balanceCents)}.`}
+              You can withdraw up to {formatMoney(account.balanceCents)}. Sandbox mode — no funds
+              leave anywhere yet.
             </p>
           </div>
         </div>
