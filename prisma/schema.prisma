@@ -43,13 +43,23 @@ model User {
   emailVerified DateTime?
   /// Bumped whenever the password changes so existing JWTs can be rejected.
   tokenVersion  Int       @default(0)
+  /// TOTP secret, sealed with AES-256-GCM (see lib/secret-box.ts).
+  totpSecret       String?
+  totpEnabledAt    DateTime?
+  /// Highest TOTP counter accepted, so a code can't be replayed.
+  totpLastCounter  Int?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  account     Account?
-  riskProfile RiskProfile?
-  tokens      Token[]
+  account        Account?
+  riskProfile    RiskProfile?
+  tokens         Token[]
   depositAddress DepositAddress?
+  recoveryCodes  RecoveryCode[]
+  sessions       UserSession[]
+  authEvents     AuthEvent[]
 
   @@index([createdAt])
 }
@@ -193,4 +203,67 @@ model DemoTrade {
   createdAt DateTime @default(now())
 
   @@index([accountId, createdAt])
+}
+
+enum AuthEventType {
+  SIGN_IN_SUCCEEDED
+  SIGN_IN_FAILED
+  SIGN_OUT
+  LOCKED_OUT
+  TOTP_ENABLED
+  TOTP_DISABLED
+  TOTP_CHALLENGE_FAILED
+  RECOVERY_CODES_REGENERATED
+  RECOVERY_CODE_USED
+  SESSIONS_REVOKED
+  PASSWORD_CHANGED
+  EMAIL_VERIFIED
+}
+
+/// Append-only authentication audit trail. Written on every success and failure;
+/// auditing must never be able to block authentication, so writes are best-effort.
+model AuthEvent {
+  id        String        @id @default(cuid())
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type      AuthEventType
+  /// Recorded even when no user matched, so failed attempts are still traceable.
+  email     String?
+  ip        String?
+  userAgent String?
+  detail    String?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+/// One-time 2FA backup codes. Only SHA-256 hashes are stored.
+model RecoveryCode {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash String    @unique
+  usedAt   DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// A real, revocable session record.
+/// The JWT carries a random `sid`; only its hash lives here, so this table can
+/// list and revoke sessions without ever storing a usable token.
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+  expiresAt  DateTime
+
+  @@index([userId, createdAt])
 }

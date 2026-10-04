@@ -98,6 +98,7 @@ app/
   signup/page.tsx             redirects to /dashboard when already signed in
   signin/page.tsx             ditto; reads ?next=
   dashboard/page.tsx          server-side auth gate, then renders the client UI
+  settings/page.tsx           security: 2FA, recovery codes, active sessions
   forgot-password/page.tsx    request a reset link
   reset-password/page.tsx     set a new password from the emailed token
   verify-email/page.tsx       confirm the email from the emailed token
@@ -118,6 +119,12 @@ app/
     cron/sync-deposits        POST scheduler sweep (Authorization: Bearer CRON_SECRET)
     cron/demo-trades          POST scheduler sweep (Authorization: Bearer CRON_SECRET)
     session/ephemeral         POST "keep me signed in" = off
+    security/2fa/setup        POST begin 2FA enrolment (secret, not yet enabled)
+    security/2fa/enable       POST confirm a code, switch on, return recovery codes
+    security/2fa/disable      POST turn 2FA off (password required)
+    security/recovery-codes   POST regenerate one-time backup codes
+    security/sessions         GET  active sessions + 2FA status
+    security/sessions/revoke  POST revoke one device, this one, or all
     health                    liveness + DB check (Render health check)
 components/
   Cursor.tsx                  the custom #dot cursor
@@ -129,11 +136,13 @@ components/
   VerifyEmail.tsx             consume the verification token
   Dashboard.tsx               KPI cards, demo feed, positions, activity, withdraw
   CryptoDepositPanel.tsx      receiving address, copy, "check for deposits"
+  SecuritySettings.tsx        2FA enrolment, recovery codes, session list
 lib/
   prisma.ts  password.ts  auth.ts  tokens.ts  email.ts  rate-limit.ts
   ledger.ts  vibes.ts  validation.ts  format.ts
   idempotency.ts  crypto.ts  etherscan.ts  prices.ts
   demo-trading.ts  account-payload.ts  cron-auth.ts  prisma-errors.ts
+  totp.ts  secret-box.ts  recovery-codes.ts  sessions.ts  auth-events.ts  client-info.ts
 prisma/schema.prisma
 ```
 
@@ -146,6 +155,11 @@ prisma/schema.prisma
   disclosure version, and when. Updating the vibe re-records it.
 - **Token** — single-use email-verification / password-reset tokens. Only the
   SHA-256 hash is stored, so a database leak can't hand out working reset links.
+- **UserSession** — a real, revocable session. The JWT carries a random `sid`;
+  only its hash is stored, so sessions can be listed and revoked.
+- **AuthEvent** — append-only audit trail of sign-ins, failures, lockouts and
+  2FA changes. Writes are best-effort so auditing can never block authentication.
+- **RecoveryCode** — one-time 2FA backup codes, stored as SHA-256 hashes.
 - **IdempotencyKey** — one row per money-moving intent, unique on `(scope, key)`.
 - **DepositAddress** — a watch-only receiving address, assigned to at most one user.
 - **CryptoDeposit** — one on-chain transfer, unique on
@@ -163,6 +177,12 @@ Render builds stay simple).
 **Real (persisted in Postgres):**
 
 - Registration, sign-in, sessions, sign-out, protected routes.
+- **Two-factor (TOTP)** and one-time recovery codes. Secrets are encrypted at
+  rest; codes are rejected if replayed within their 30-second window.
+- **Account lockout** after 5 failed attempts (15 minutes), plus an **auth audit
+  log** of successes, failures, lockouts and 2FA changes.
+- **Session management** — list active devices and revoke one, the current one,
+  or all of them.
 - Email verification and password reset (token issuance, single-use consumption,
   expiry). Emails are logged to the console unless `RESEND_API_KEY` is set.
 - Password changes bump a token version, which **invalidates every existing
@@ -224,6 +244,16 @@ funds; moving crypto into the custody wallet requires a key it never sees.
   `(scope, key)` is the lock, so retries replay instead of double-crediting.
 - Crypto crediting is guarded twice: the unique `(chainId, txHash, assetKey)`
   constraint, plus a conditional update that only flips `creditedAt` once.
+- 2FA secrets are sealed with AES-256-GCM (key via HKDF); recovery codes and
+  session tokens are stored only as hashes; TOTP codes are replay-protected by
+  recording the last accepted counter.
+- Every request validates its session record, so revoking a device takes effect
+  immediately rather than at JWT expiry.
+
+**Known auth gaps:** there is no CAPTCHA or IP-level limit on the sign-in
+endpoint itself (account lockout is the current defence), a failed sign-in for an
+unknown email returns slightly faster than a real one, and there is no password
+change for a signed-in user yet — use the reset flow.
 - **No middleware file on purpose** — Auth.js middleware would pull Prisma into
   the Edge runtime. Page-level gates + API checks cover it without that hazard.
 - `AUTH_SECRET` must be set in every environment; it is never committed.
@@ -235,7 +265,7 @@ funds; moving crypto into the custody wallet requires a key it never sees.
 | Phase | Scope |
 |---|---|
 | **0 · done** | Database, auth, ledger, authenticated dashboard, waitlist |
-| **1 · in progress** | ✅ email verification, ✅ password reset + session invalidation, ✅ rate limits, ✅ idempotent money operations, ✅ crypto deposits, ✅ demo trading — remaining: KYC screens, 2FA + session management |
+| **1 · in progress** | ✅ email verification, ✅ password reset + session invalidation, ✅ rate limits, ✅ idempotent money operations, ✅ crypto deposits, ✅ demo trading, ✅ TOTP 2FA + recovery codes, ✅ account lockout, ✅ auth audit log, ✅ session management — remaining: KYC screens |
 | **2** | Broker/custodian integration, real positions, withdrawal review + payout, statements, admin |
 | **3** | Live — only after legal and compliance sign-off |
 

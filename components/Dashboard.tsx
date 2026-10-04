@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 
@@ -231,6 +232,21 @@ export default function Dashboard() {
     }
   }
 
+  async function endSession() {
+    try {
+      // Revoke the server-side session record before clearing the cookie, so an
+      // explicit sign-out actually ends the session rather than just forgetting it.
+      await fetch("/api/security/sessions/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+    } catch {
+      /* signing out locally is still the right outcome */
+    }
+    await signOut({ callbackUrl: "/signin" });
+  }
+
   async function resendVerification() {
     setResend({ busy: true, message: null, error: null });
     try {
@@ -279,7 +295,10 @@ export default function Dashboard() {
         <b>stacked.</b>
         <span className="nav-links">
           <span className="who">{data.user.name}</span>
-          <button className="pill" type="button" onClick={() => void signOut({ callbackUrl: "/signin" })}>
+          <Link className="pill" href="/settings">
+            settings
+          </Link>
+          <button className="pill" type="button" onClick={() => void endSession()}>
             sign out
           </button>
         </span>

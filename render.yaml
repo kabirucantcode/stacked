@@ -44,6 +44,9 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      # Encrypts TOTP secrets at rest. Generated so it is never committed.
+      - key: TOTP_ENCRYPTION_KEY
+        generateValue: true
       # Demo trading moves the balance so the dashboard has live data.
       - key: DEMO_TRADING
         value: "true"

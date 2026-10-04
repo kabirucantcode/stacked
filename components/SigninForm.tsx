@@ -12,6 +12,8 @@ export default function SigninForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showCode, setShowCode] = useState(false);
+  const [code, setCode] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,6 +27,9 @@ export default function SigninForm() {
       const result = await signIn("credentials", {
         email: email.trim().toLowerCase(),
         password,
+        // Only sent when the user revealed the field — the server decides whether
+        // a second factor is actually required.
+        token: showCode ? code.trim() : undefined,
         redirect: false,
       });
 
@@ -83,6 +88,25 @@ export default function SigninForm() {
           placeholder="your password"
         />
       </label>
+
+      {showCode ? (
+        <label className="field">
+          authenticator code
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            placeholder="123456 or a recovery code"
+          />
+          <small>6-digit code from your app, or one of your recovery codes.</small>
+        </label>
+      ) : (
+        <button className="lnk" type="button" onClick={() => setShowCode(true)}>
+          using an authenticator app?
+        </button>
+      )}
 
       <label className="ck">
         <input
