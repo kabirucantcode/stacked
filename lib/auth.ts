@@ -33,19 +33,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, email: user.email, name: user.name };
+        // Assigned to a variable (rather than returned as a fresh literal) so the
+        // extra `tokenVersion` field is allowed by the structural return type.
+        const authenticated = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          tokenVersion: user.tokenVersion,
+        };
+        return authenticated;
       },
     }),
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user?.id) token.uid = user.id;
+      if (user?.id) {
+        token.uid = user.id;
+        // Stamp the JWT with the user's current version. A password change bumps
+        // the database value, which invalidates every previously issued token.
+        token.tv = (user as { tokenVersion?: number }).tokenVersion ?? 0;
+      }
       return token;
     },
     session({ session, token }) {
-      if (typeof token.uid === "string") {
-        (session.user as { id?: string }).id = token.uid;
-      }
+      const view = session.user as { id?: string; tokenVersion?: number };
+      if (typeof token.uid === "string") view.id = token.uid;
+      if (typeof token.tv === "number") view.tokenVersion = token.tv;
       return session;
     },
   },
@@ -57,11 +70,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
  */
 export async function getSessionUser() {
   const session = await auth();
-  const id = (session?.user as { id?: string } | undefined)?.id;
-  if (!id) return null;
+  const view = session?.user as { id?: string; tokenVersion?: number } | undefined;
+  if (!view?.id) return null;
 
-  return prisma.user.findUnique({
-    where: { id },
+  const user = await prisma.user.findUnique({
+    where: { id: view.id },
     include: { account: true, riskProfile: true },
   });
+  if (!user) return null;
+
+  // Reject tokens issued before the last password change.
+  if (user.tokenVersion !== (view.tokenVersion ?? 0)) return null;
+
+  return user;
 }

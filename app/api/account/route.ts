@@ -23,7 +23,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    user: { name: user.name, email: user.email },
+    user: { name: user.name, email: user.email, emailVerified: user.emailVerified !== null },
     account: {
       vibe: account.vibe,
       vibeLabel: VIBE_LABEL[account.vibe],

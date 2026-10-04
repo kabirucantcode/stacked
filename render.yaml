@@ -37,3 +37,10 @@ services:
         value: "true"
       - key: NODE_VERSION
         value: "22"
+      # Optional. Leave unset and emails are logged to the server console
+      # instead of sent. Fill these in the Render dashboard when you have a
+      # Resend account.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

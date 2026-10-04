@@ -47,6 +47,19 @@ export const vibeSchema = z.object({
   vibe: z.enum(VIBES),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(10, "That reset link is not valid."),
+  password: z.string().min(8, "Your password needs at least 8 characters."),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(10, "That verification link is not valid."),
+});
+
 /** First human-readable message from a failed parse. */
 export function firstIssue(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Check your details and try again.";

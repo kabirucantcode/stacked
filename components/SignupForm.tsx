@@ -303,8 +303,11 @@ export default function SignupForm() {
         <h1 className="serif">you&apos;re in, {firstName}.</h1>
         <p className="lede">
           Risk vibe: <strong>{vibe ?? "Balanced"}</strong>. Starting amount:{" "}
-          <strong>{formatMoney(startCents)}</strong>. We&apos;ll email{" "}
-          <strong>{email.trim()}</strong> as your first trades land.
+          <strong>{formatMoney(startCents)}</strong>.
+        </p>
+        <p className="lede">
+          We sent a confirmation link to <strong>{email.trim()}</strong> — confirm it so trade
+          receipts and statements reach you.
         </p>
         <div className="mrow">
           <Link className="btn dark" href="/dashboard">

@@ -27,7 +27,7 @@ type ActivityEntry = {
 };
 
 type AccountPayload = {
-  user: { name: string; email: string };
+  user: { name: string; email: string; emailVerified: boolean };
   account: {
     vibe: VibeKey;
     vibeLabel: string;
@@ -110,6 +110,33 @@ export default function Dashboard() {
     null,
   );
   const [vibeBusy, setVibeBusy] = useState(false);
+  const [resend, setResend] = useState<{ busy: boolean; message: string | null; error: string | null }>({
+    busy: false,
+    message: null,
+    error: null,
+  });
+
+  async function resendVerification() {
+    setResend({ busy: true, message: null, error: null });
+    try {
+      const response = await fetch("/api/auth/resend-verification", { method: "POST" });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!response.ok) {
+        setResend({ busy: false, message: null, error: payload.error ?? "Couldn't send that email." });
+        return;
+      }
+      setResend({
+        busy: false,
+        message: payload.message ?? "Confirmation email sent.",
+        error: null,
+      });
+    } catch {
+      setResend({ busy: false, message: null, error: "We couldn't reach the server." });
+    }
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -273,6 +300,38 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        {!data.user.emailVerified ? (
+          <section className="panel" style={{ marginBottom: 30 }}>
+            <h2>
+              confirm your <span className="serif">email.</span>
+            </h2>
+            <p className="hint">
+              We sent a link to {data.user.email}. Confirm it so trade receipts and statements
+              actually reach you.
+            </p>
+            {resend.error ? (
+              <div className="alert" role="alert">
+                {resend.error}
+              </div>
+            ) : null}
+            {resend.message ? (
+              <div className="alert ok" role="status">
+                {resend.message}
+              </div>
+            ) : null}
+            <div className="mrow" style={{ marginTop: 16 }}>
+              <button
+                className="btn sm"
+                type="button"
+                disabled={resend.busy}
+                onClick={() => void resendVerification()}
+              >
+                {resend.busy ? "sending…" : "resend confirmation"}
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <section className="kpis" aria-label="Account summary">
           <div className="kpi">

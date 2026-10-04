@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 
+import { appUrl, sendEmail, verificationEmail } from "@/lib/email";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { issueToken } from "@/lib/tokens";
 import { firstIssue, registerSchema } from "@/lib/validation";
 import { DISCLOSURE_VERSION, toVibe } from "@/lib/vibes";
 
 export async function POST(request: Request) {
+  const limit = rateLimit(clientKey(request, "register"), 10, 60 * 60 * 1000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many sign-up attempts from this address. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -62,6 +73,17 @@ export async function POST(request: Request) {
       },
       select: { id: true, email: true, name: true },
     });
+
+    // Best effort: the account exists either way, so a mail outage must not
+    // roll back a successful sign-up.
+    try {
+      const token = await issueToken(user.id, "EMAIL_VERIFICATION");
+      const url = `${appUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+      const mail = verificationEmail(user.name.split(" ")[0] ?? user.name, url);
+      await sendEmail({ to: user.email, ...mail });
+    } catch (mailError) {
+      console.error("verification email failed", mailError);
+    }
 
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {

@@ -41,11 +41,14 @@ model User {
   phone         String?
   role          String    @default("user")
   emailVerified DateTime?
+  /// Bumped whenever the password changes so existing JWTs can be rejected.
+  tokenVersion  Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   account     Account?
   riskProfile RiskProfile?
+  tokens      Token[]
 
   @@index([createdAt])
 }
@@ -97,4 +100,24 @@ model WaitlistEntry {
   vibe      Vibe?
   amount    Int?
   createdAt DateTime @default(now())
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Single-use tokens emailed to the user. Only the SHA-256 hash is stored, so a
+/// database leak does not hand out working reset links.
+model Token {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       TokenType
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, type])
 }

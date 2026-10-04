@@ -100,7 +100,8 @@ export default function SigninForm() {
       </div>
 
       <p className="foot mono">
-        no account yet? <Link href="/signup">create one</Link>
+        no account yet? <Link href="/signup">create one</Link> · forgot your password?{" "}
+        <Link href="/forgot-password">reset it</Link>
       </p>
     </form>
   );
