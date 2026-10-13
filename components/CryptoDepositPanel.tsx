@@ -137,6 +137,36 @@ export default function CryptoDepositPanel({
     }
   }
 
+  async function depositDemoEth(amountEth: number) {
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const response = await fetch("/api/crypto/demo-deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountEth }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        amountCents?: number;
+      };
+      setBusy(false);
+      if (!response.ok) {
+        setError(payload.error ?? "Could not deposit demo ETH.");
+        return;
+      }
+      const dollars = ((payload.amountCents ?? 0) / 100).toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+      });
+      setStatus(`Credited demo deposit of ${amountEth} ETH (+$${dollars}).`);
+      onCredited();
+    } catch {
+      setBusy(false);
+      setError("We couldn't reach the server.");
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -209,6 +239,46 @@ export default function CryptoDepositPanel({
             addresses.
           </div>
         )}
+
+        <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid rgba(0,0,0,0.12)" }}>
+          <h3 style={{ margin: "0 0 4px", fontSize: 18 }}>demo deposit (sandbox)</h3>
+          <p className="hint" style={{ margin: "0 0 12px" }}>
+            Isolate and test the trading loop: simulate an incoming ETH deposit without on-chain gas.
+          </p>
+          <div className="chips">
+            <button
+              className="chip"
+              type="button"
+              disabled={busy}
+              onClick={() => void depositDemoEth(0.1)}
+            >
+              +0.1 ETH (~$265)
+            </button>
+            <button
+              className="chip"
+              type="button"
+              disabled={busy}
+              onClick={() => void depositDemoEth(0.5)}
+            >
+              +0.5 ETH (~$1,325)
+            </button>
+            <button
+              className="chip"
+              type="button"
+              disabled={busy}
+              onClick={() => void depositDemoEth(1.0)}
+            >
+              +1.0 ETH (~$2,650)
+            </button>
+          </div>
+          {!info?.address ? (
+            <div className="mrow" style={{ marginTop: 14 }}>
+              <button className="lnk" type="button" onClick={onClose}>
+                close
+              </button>
+            </div>
+          ) : null}
+        </div>
 
         {deposits.length > 0 ? (
           <>

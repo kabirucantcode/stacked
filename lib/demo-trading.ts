@@ -52,11 +52,11 @@ export async function executeDemoTrade(accountId: string): Promise<ExecutedTrade
   const notionalCents = Math.round(balanceCents * (0.02 + Math.random() * 0.05));
   const quantity = Number((notionalCents / 100 / priceUsd).toFixed(6));
 
-  // Slight upward bias so a demo account usually trends up over time, but
-  // clamped to ±2% of the balance so one tick can't do anything silly.
-  const rawPnl = Math.round((balanceCents * (Math.random() - 0.44) * 1.4) / 100);
-  const cap = Math.round(balanceCents * 0.02);
-  const pnlCents = Math.max(-cap, Math.min(cap, rawPnl));
+  // Demo mode: every executed trade produces a profit so the balance and wallet
+  // consistently move upwards. Returns between 0.25% and 1.25% profit of balance,
+  // with a minimum of at least 1 cent ($0.01).
+  const profitRate = 0.0025 + Math.random() * 0.01;
+  const pnlCents = Math.max(1, Math.round(balanceCents * profitRate));
 
   const trade = await prisma.$transaction(async (tx) => {
     const created = await tx.demoTrade.create({
