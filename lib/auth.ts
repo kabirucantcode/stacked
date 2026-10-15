@@ -33,6 +33,8 @@ function asRequest(value: unknown): Request | null {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Auth.js beta does not consistently auto-detect AUTH_SECRET in every runtime.
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   // Render terminates TLS and proxies to us, so the forwarded host is trusted.
   trustHost: true,
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 30 },
