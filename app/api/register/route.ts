@@ -32,17 +32,17 @@ export async function POST(request: Request) {
   const { email, password, name, phone, amountCents } = parsed.data;
   const vibe = toVibe(parsed.data.vibe) ?? "BALANCED";
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (existing) {
-    return NextResponse.json(
-      { error: "There's already an account for that email. Try signing in instead." },
-      { status: 409 },
-    );
-  }
-
-  const passwordHash = await hashPassword(password);
-
   try {
+    const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing) {
+      return NextResponse.json(
+        { error: "There's already an account for that email. Try signing in instead." },
+        { status: 409 },
+      );
+    }
+
+    const passwordHash = await hashPassword(password);
+
     // One transaction so a user never exists without an account + risk profile.
     const user = await prisma.user.create({
       data: {
