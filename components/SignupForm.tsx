@@ -106,7 +106,7 @@ export default function SignupForm() {
         return;
       }
 
-      setStep(STEP_COUNT);
+      router.replace("/dashboard");
       router.refresh();
     } catch {
       setBusy(false);
