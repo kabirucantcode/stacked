@@ -10,11 +10,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Vercel Postgres provides a Prisma-compatible connection string here.
-  // DATABASE_URL in this project can be an adapter URL and is not always a
-  // PostgreSQL URL, which causes Prisma to fail during signup.
-  // Keep this datasource aligned with the Vercel Postgres integration.
-  url      = env("DATABASE_URL")
+  // Use the Prisma-compatible pooled connection provisioned for the project.
+  // Keep the URL explicit so Prisma does not receive the driver/adapter URL.
+  url      = env("POSTGRES_PRISMA_DATABASE_URL")
 }
 
 enum Vibe {
